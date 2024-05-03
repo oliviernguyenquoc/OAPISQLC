@@ -1,0 +1,20 @@
+openapi: 3.1.0
+info:
+  title: Tag Management Test
+  version: 1.0.0
+tags:
+  - name: pet
+    description: Everything about your Pets
+paths:
+  /pets:
+    get:
+      tags:
+        - pet
+      summary: List all pets
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        name:
+          type: string

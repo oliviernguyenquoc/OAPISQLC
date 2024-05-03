@@ -1,0 +1,27 @@
+openapi: 3.1.0
+info:
+  title: allOf Example
+  version: 1.0.0
+components:
+  schemas:
+    Animal:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+    Dog:
+      allOf:
+        - $ref: '#/components/schemas/Animal'
+        - type: object
+          required:
+            - breed
+          properties:
+            breed:
+              type: string
+            barkVolume:
+              type: integer

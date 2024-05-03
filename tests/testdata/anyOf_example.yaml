@@ -1,0 +1,14 @@
+openapi: 3.1.0
+info:
+  title: anyOf Example
+  version: 1.0.0
+components:
+  schemas:
+    TextOrNumber:
+      type: object
+      properties:
+        value:
+          anyOf:
+            - type: string
+              maxLength: 100
+            - type: integer

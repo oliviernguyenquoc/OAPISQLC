@@ -1,0 +1,18 @@
+openapi: 3.1.0
+info:
+  title: Data Type and Constraints Test
+  version: 1.0.0
+components:
+  schemas:
+    Product:
+      type: object
+      properties:
+        price:
+          type: number
+          minimum: 0
+        status:
+          type: string
+          enum:
+            - available
+            - pending
+            - sold
