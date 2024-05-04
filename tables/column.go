@@ -38,6 +38,31 @@ var datatypeMap = map[string]string{
 	"\\Model\\User": "TEXT",
 }
 
+func buildConstraint(name string, minimum *float64, maximum *float64, enum []string) string {
+	var conditions []string
+
+	if minimum != nil {
+		conditions = append(conditions, fmt.Sprintf("%s >= %f", name, *minimum))
+	}
+
+	if maximum != nil {
+		conditions = append(conditions, fmt.Sprintf("%s <= %f", name, *maximum))
+	}
+
+	if len(enum) > 0 {
+		quotedEnums := make([]string, len(enum))
+		for i, v := range enum {
+			quotedEnums[i] = fmt.Sprintf("'%s'", v)
+		}
+		conditions = append(conditions, fmt.Sprintf("%s IN (%s)", name, strings.Join(quotedEnums, ", ")))
+	}
+
+	if len(conditions) > 0 {
+		return " CHECK (" + strings.Join(conditions, " AND ") + ")"
+	}
+	return ""
+}
+
 func (c Column) getSQL() (string, error) {
 	var sb strings.Builder
 
@@ -74,31 +99,9 @@ func (c Column) getSQL() (string, error) {
 	}
 
 	// Handle constraints
-	if len(c.Constraints.Enum) > 0 || c.Constraints.Minimum != nil || c.Constraints.Maximum != nil {
-		sb.WriteString(" CHECK (")
-		if c.Constraints.Minimum != nil {
-			sb.WriteString(fmt.Sprintf("%s >= %f", c.Name, *c.Constraints.Minimum))
-		}
-		if c.Constraints.Minimum != nil && c.Constraints.Maximum != nil {
-			sb.WriteString(" AND ")
-		}
-		if c.Constraints.Maximum != nil {
-			sb.WriteString(fmt.Sprintf("%s <= %f", c.Name, *c.Constraints.Maximum))
-		}
-		if len(c.Constraints.Enum) > 0 {
-			if c.Constraints.Minimum != nil || c.Constraints.Maximum != nil {
-				sb.WriteString(" AND ")
-			}
-			sb.WriteString(fmt.Sprintf("%s IN (", c.Name))
-			for i, v := range c.Constraints.Enum {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				sb.WriteString(fmt.Sprintf("'%s'", v))
-			}
-			sb.WriteString(")")
-		}
-		sb.WriteString(")")
+	constraint := buildConstraint(c.Name, c.Constraints.Minimum, c.Constraints.Maximum, c.Constraints.Enum)
+	if constraint != "" {
+		sb.WriteString(constraint)
 	}
 
 	if c.DefaultValue != "" {
