@@ -5,12 +5,19 @@ import (
 	"strings"
 )
 
+type Constraints struct {
+	Minimum *float64
+	Maximum *float64
+	Enum    []string
+}
+
 type Column struct {
 	Name         string
 	DataType     string
 	NotNull      bool
 	DefaultValue string
 	PrimaryKey   bool
+	Constraints  Constraints
 }
 
 var datatypeMap = map[string]string{
@@ -18,7 +25,7 @@ var datatypeMap = map[string]string{
 	"int32":         "INTEGER",
 	"int64":         "BIGINT",
 	"boolean":       "BOOLEAN",
-	"number":        "REAL",
+	"number":        "NUMERIC",
 	"string":        "TEXT",
 	"byte":          "BYTEA",
 	"binary":        "BYTEA",
@@ -64,6 +71,34 @@ func (c Column) getSQL() (string, error) {
 
 	if c.PrimaryKey {
 		sb.WriteString(" PRIMARY KEY")
+	}
+
+	// Handle constraints
+	if len(c.Constraints.Enum) > 0 || c.Constraints.Minimum != nil || c.Constraints.Maximum != nil {
+		sb.WriteString(" CHECK (")
+		if c.Constraints.Minimum != nil {
+			sb.WriteString(fmt.Sprintf("%s >= %f", c.Name, *c.Constraints.Minimum))
+		}
+		if c.Constraints.Minimum != nil && c.Constraints.Maximum != nil {
+			sb.WriteString(" AND ")
+		}
+		if c.Constraints.Maximum != nil {
+			sb.WriteString(fmt.Sprintf("%s <= %f", c.Name, *c.Constraints.Maximum))
+		}
+		if len(c.Constraints.Enum) > 0 {
+			if c.Constraints.Minimum != nil || c.Constraints.Maximum != nil {
+				sb.WriteString(" AND ")
+			}
+			sb.WriteString(fmt.Sprintf("%s IN (", c.Name))
+			for i, v := range c.Constraints.Enum {
+				if i > 0 {
+					sb.WriteString(", ")
+				}
+				sb.WriteString(fmt.Sprintf("'%s'", v))
+			}
+			sb.WriteString(")")
+		}
+		sb.WriteString(")")
 	}
 
 	if c.DefaultValue != "" {

@@ -87,7 +87,7 @@ func TestDataTypeAndConstraints(t *testing.T) {
 	testOpenAPISpecToSQL(t, "tests/testdata/data_types_and_constraints.yaml", `
 	CREATE TABLE IF NOT EXISTS products (
         price NUMERIC CHECK (price >= 0 AND price <= 100000),
-        status VARCHAR(50) CHECK (status IN ('available', 'pending', 'sold')),
+        status TEXT CHECK (status IN ('available', 'pending', 'sold')),
 		quantity INTEGER NOT NULL
     );`)
 }

@@ -83,6 +83,8 @@ func NewTableFromSchema(tableName string, schema orderedmap.Pair[string, *highba
 		}
 	}
 
+	requiredColums := schema.Value().Schema().Required
+
 	for property := properties.First(); property != nil; property = property.Next() {
 		columnName := property.Key()
 		columnSchema := property.Value().Schema()
@@ -110,12 +112,23 @@ func NewTableFromSchema(tableName string, schema orderedmap.Pair[string, *highba
 			defaultValue = columnSchema.Default.Value
 		}
 
+		// Handle possible values for the column (Constraints)
+		var enumValues []string
+		for _, node := range columnSchema.Enum {
+			enumValues = append(enumValues, node.Value)
+		}
+
 		table.ColumnDefinition = append(table.ColumnDefinition, Column{
 			Name:         columnName,
 			DataType:     dataType,
 			PrimaryKey:   columnName == "id",
-			NotNull:      columnSchema.Nullable != nil && !*columnSchema.Nullable,
+			NotNull:      (columnSchema.Nullable != nil && !*columnSchema.Nullable) || slices.Contains(requiredColums, columnName),
 			DefaultValue: defaultValue,
+			Constraints: Constraints{
+				Minimum: columnSchema.Minimum,
+				Maximum: columnSchema.Maximum,
+				Enum:    enumValues,
+			},
 		})
 	}
 

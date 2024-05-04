@@ -5,6 +5,8 @@ info:
 components:
   schemas:
     Product:
+      required:
+        - quantity
       type: object
       properties:
         price:
@@ -19,4 +21,3 @@ components:
             - sold
         quantity:
           type: integer
-          required: true
