@@ -73,7 +73,7 @@ func TestComponentReferences(t *testing.T) {
 	CREATE TABLE IF NOT EXISTS users (
         id BIGSERIAL NOT NULL PRIMARY KEY,
         address_id INTEGER,
-		FOREIGN KEY (address_id) REFERENCES addresses (id)
+		FOREIGN KEY (address_id) REFERENCES addresses(id)
     );
     CREATE TABLE IF NOT EXISTS addresses (
         id BIGSERIAL NOT NULL PRIMARY KEY,

@@ -76,6 +76,13 @@ func NewTableFromSchema(tableName string, schema orderedmap.Pair[string, *highba
 
 	properties := schema.Value().Schema().Properties
 
+	// Check if there is a custom extension x-database-entity
+	if schema.Value().Schema().Extensions != nil {
+		if val, ok := schema.Value().Schema().Extensions.Get("x-database-entity"); ok && val.Value == "false" {
+			return &table
+		}
+	}
+
 	for property := properties.First(); property != nil; property = property.Next() {
 		columnName := property.Key()
 		columnSchema := property.Value().Schema()
@@ -92,7 +99,6 @@ func NewTableFromSchema(tableName string, schema orderedmap.Pair[string, *highba
 		ref := property.Value().GetReference()
 		if ref != "" {
 			dataType = "integer"
-			// refName := strings.ToLower(strings.Split(ref, "/")[len(strings.Split(ref, "/"))-1])
 			table.ForeignKeys = append(table.ForeignKeys, columnName)
 			columnName = columnName + "_id"
 			dataType = "integer"
