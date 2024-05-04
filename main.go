@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 
 	tables "github.com/oliviernguyenquoc/oas2pgschema/tables"
 	"github.com/pb33f/libopenapi"
@@ -49,7 +50,7 @@ func parseOpenAPISpec(openAPISpec []byte) (*v3.Components, error) {
 	}
 
 	// Print the number of paths and schemas in the document
-	fmt.Printf("There are %d paths and %d schemas in the document", nbPaths, nbSchemas)
+	slog.Info("There are %s paths and %d schemas in the document", strconv.Itoa(nbPaths), nbSchemas)
 
 	return v3Model.Model.Components, nil
 }

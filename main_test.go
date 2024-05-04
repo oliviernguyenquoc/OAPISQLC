@@ -49,7 +49,7 @@ func TestSimpleSchemaTransformation(t *testing.T) {
 
 	testOpenAPISpecToSQL(t, "tests/testdata/simple_schema.yaml", `
 	CREATE TABLE IF NOT EXISTS users (
-		id bigserial NOT NULL PRIMARY KEY,
+		id BIGSERIAL NOT NULL PRIMARY KEY,
 		username TEXT
 	);`)
 }
@@ -71,12 +71,12 @@ func TestComponentReferences(t *testing.T) {
 
 	testOpenAPISpecToSQL(t, "tests/testdata/component_references.yaml", `
 	CREATE TABLE IF NOT EXISTS users (
-        id bigserial NOT NULL PRIMARY KEY,
+        id BIGSERIAL NOT NULL PRIMARY KEY,
         address_id INTEGER,
 		FOREIGN KEY (address_id) REFERENCES addresses (id)
     );
     CREATE TABLE IF NOT EXISTS addresses (
-        id bigserial NOT NULL PRIMARY KEY,
+        id BIGSERIAL NOT NULL PRIMARY KEY,
         street TEXT,
         city TEXT
     );`)
@@ -86,7 +86,7 @@ func TestDataTypeAndConstraints(t *testing.T) {
 
 	testOpenAPISpecToSQL(t, "tests/testdata/data_types_and_constraints.yaml", `
 	CREATE TABLE IF NOT EXISTS products (
-        id bigserial NOT NULL PRIMARY KEY,
+        id BIGSERIAL NOT NULL PRIMARY KEY,
         price NUMERIC CHECK (price >= 0),
         status VARCHAR(50) CHECK (status IN ('available', 'pending', 'sold'))
     );`)
@@ -97,7 +97,7 @@ func TestCircularReferences(t *testing.T) {
 	// No table should be created if the references are circular and cannot be resolved.
 	testOpenAPISpecToSQL(t, "tests/testdata/circular_references.yaml", `
 	CREATE TABLE IF NOT EXISTS products (
-        id bigserial NOT NULL PRIMARY KEY,
+        id BIGSERIAL NOT NULL PRIMARY KEY,
         price NUMERIC CHECK (price >= 0),
         status VARCHAR(50) CHECK (status IN ('available', 'pending', 'sold'))
     );`)
@@ -106,7 +106,7 @@ func TestCircularReferences(t *testing.T) {
 func TestAllOfSchema(t *testing.T) {
 	testOpenAPISpecToSQL(t, "tests/testdata/allOf_example.yaml", `
 	CREATE TABLE IF NOT EXISTS dogs (
-        id bigserial NOT NULL PRIMARY KEY,
+        id BIGSERIAL NOT NULL PRIMARY KEY,
         name TEXT,
         type TEXT,
         breed TEXT,
@@ -117,7 +117,16 @@ func TestAllOfSchema(t *testing.T) {
 func TestAnyOfSchema(t *testing.T) {
 	testOpenAPISpecToSQL(t, "tests/testdata/anyOf_example.yaml", `
 	CREATE TABLE IF NOT EXISTS text_or_numbers (
-        id bigserial NOT NULL PRIMARY KEY,
+        id BIGSERIAL NOT NULL PRIMARY KEY,
         value TEXT CHECK (value ~* '^\d+$' OR LENGTH(value) <= 100)
     );`)
+}
+
+func TestIdCreatedAtUpdatedAt(t *testing.T) {
+	testOpenAPISpecToSQL(t, "tests/testdata/id_created_at_updated_at.yaml", `
+	CREATE TABLE IF NOT EXISTS users (
+		id BIGSERIAL NOT NULL PRIMARY KEY,
+		created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+		updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+	);`)
 }

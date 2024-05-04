@@ -46,7 +46,7 @@ func (c Column) getSQL() (string, error) {
 
 	// Handle special case for id column
 	if c.Name == "id" && pgDataType == "INTEGER" {
-		pgDataType = "bigserial"
+		pgDataType = "BIGSERIAL"
 		c.NotNull = true
 	}
 
