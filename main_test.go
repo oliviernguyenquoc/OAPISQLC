@@ -23,7 +23,9 @@ func compareSQL(t *testing.T, expectedSQL, actualSQL string) {
 	if actualTree.Fingerprint() != expectedTree.Fingerprint() {
 		t.Errorf(`
 		Expected SQL did not match (at least, they do not have the samefingerprinting). 
-		Got %v, wanted %v
+		Got: %v
+		
+		Wanted: %v
 		`,
 			actualSQL, expectedSQL)
 	}
@@ -46,17 +48,16 @@ func testOpenAPISpecToSQL(t *testing.T, filename, expectedSQL string) {
 func TestSimpleSchemaTransformation(t *testing.T) {
 
 	testOpenAPISpecToSQL(t, "tests/testdata/simple_schema.yaml", `
-	CREATE TABLE users (
-		id BIGINT,
-		username VARCHAR(255)
+	CREATE TABLE IF NOT EXISTS users (
+		id bigserial NOT NULL PRIMARY KEY,
+		username TEXT
 	);`)
 }
 
 func TestTagManagement(t *testing.T) {
 	testOpenAPISpecToSQL(t, "tests/testdata/tag_management.yaml", `
-	CREATE TABLE pets (
-		id BIGINT,
-		name VARCHAR(255)
+	CREATE TABLE IF NOT EXISTS pets (
+		name TEXT
 	);`)
 }
 
@@ -69,22 +70,23 @@ func TestCustomExtensions(t *testing.T) {
 func TestComponentReferences(t *testing.T) {
 
 	testOpenAPISpecToSQL(t, "tests/testdata/component_references.yaml", `
-	CREATE TABLE users (
-        id BIGINT,
+	CREATE TABLE IF NOT EXISTS users (
+        id bigserial NOT NULL PRIMARY KEY,
         address_id BIGINT
+		FOREIGN KEY (address_id) REFERENCES addresses (id)
     );
-    CREATE TABLE addresses (
-        id BIGINT,
-        street VARCHAR(255),
-        city VARCHAR(255)
+    CREATE TABLE IF NOT EXISTS addresses (
+        id bigserial NOT NULL PRIMARY KEY,
+        street TEXT,
+        city TEXT
     );`)
 }
 
 func TestDataTypeAndConstraints(t *testing.T) {
 
 	testOpenAPISpecToSQL(t, "tests/testdata/data_types_and_constraints.yaml", `
-	CREATE TABLE products (
-        id BIGINT,
+	CREATE TABLE IF NOT EXISTS products (
+        id bigserial NOT NULL PRIMARY KEY,
         price NUMERIC CHECK (price >= 0),
         status VARCHAR(50) CHECK (status IN ('available', 'pending', 'sold'))
     );`)
@@ -94,26 +96,28 @@ func TestCircularReferences(t *testing.T) {
 
 	// No table should be created if the references are circular and cannot be resolved.
 	testOpenAPISpecToSQL(t, "tests/testdata/circular_references.yaml", `
-	CREATE TABLE products (
-        id BIGINT,
+	CREATE TABLE IF NOT EXISTS products (
+        id bigserial NOT NULL PRIMARY KEY,
         price NUMERIC CHECK (price >= 0),
         status VARCHAR(50) CHECK (status IN ('available', 'pending', 'sold'))
     );`)
 }
 
 func TestAllOfSchema(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/allOf_example.yaml", `CREATE TABLE dogs (
-        id BIGINT,
-        name VARCHAR(255),
-        type VARCHAR(255),
-        breed VARCHAR(255),
+	testOpenAPISpecToSQL(t, "tests/testdata/allOf_example.yaml", `
+	CREATE TABLE IF NOT EXISTS dogs (
+        id bigserial NOT NULL PRIMARY KEY,
+        name TEXT,
+        type TEXT,
+        breed TEXT,
         bark_volume INTEGER
     );`)
 }
 
 func TestAnyOfSchema(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/anyOf_example.yaml", `CREATE TABLE text_or_numbers (
-        id BIGINT,
+	testOpenAPISpecToSQL(t, "tests/testdata/anyOf_example.yaml", `
+	CREATE TABLE IF NOT EXISTS text_or_numbers (
+        id bigserial NOT NULL PRIMARY KEY,
         value TEXT CHECK (value ~* '^\d+$' OR LENGTH(value) <= 100)
     );`)
 }

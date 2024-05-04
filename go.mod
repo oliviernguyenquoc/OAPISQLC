@@ -6,6 +6,7 @@ require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/pb33f/libopenapi v0.16.4 // indirect
 	github.com/pganalyze/pg_query_go v1.0.3 // indirect

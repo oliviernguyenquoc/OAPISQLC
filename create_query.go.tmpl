@@ -1,0 +1,7 @@
+{{ range $idx, $table := . }}
+CREATE TABLE IF NOT EXISTS {{$table.Name}} (
+  {{range $idxColumnDef, $columnDef := $table.ColumnDefinition}}
+  {{$columnDef.Name}} {{$columnDef.DataType}}{{if $columnDef.PrimaryKey}} PRIMARY KEY {{end}}{{if $columnDef.NotNull}} NOT NULL{{end}}{{if $columnDef.DefaultValue}} DEFAULT {{if $columnDef.IsString}}'{{$columnDef.DefaultValue}}'{{else}}{{$columnDef.DefaultValue}}{{end}}{{end}}{{if ne $idxColumnDef (len $table.ColumnDefinition | minus 1) }},{{end}}
+  {{end}}
+);
+{{end}}

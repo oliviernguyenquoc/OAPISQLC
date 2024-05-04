@@ -2,10 +2,15 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
+	"strings"
 
+	inflection "github.com/jinzhu/inflection"
+	tables "github.com/oliviernguyenquoc/oas2pgschema/tables"
 	"github.com/pb33f/libopenapi"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
+	pg_query "github.com/pganalyze/pg_query_go"
 )
 
 // parseOpenAPISpec takes the path to an OpenAPI YAML file, parses it using the libopenapi library,
@@ -30,12 +35,23 @@ func parseOpenAPISpec(openAPISpec []byte) (*v3.Components, error) {
 			len(errors)))
 	}
 
-	// get a count of the number of paths and schemas.
-	paths := v3Model.Model.Paths.PathItems
-	schemas := v3Model.Model.Components.Schemas
+	// Get a count of the number of paths and schemas.
+	var nbPaths int
+	if v3Model.Model.Paths == nil {
+		nbPaths = 0
+	} else {
+		nbPaths = v3Model.Model.Paths.PathItems.Len()
+	}
 
-	// print the number of paths and schemas in the document
-	fmt.Printf("There are %d paths and %d schemas in the document", paths.Len(), schemas.Len())
+	var nbSchemas int
+	if v3Model.Model.Components.Schemas == nil {
+		nbSchemas = 0
+	} else {
+		nbSchemas = v3Model.Model.Components.Schemas.Len()
+	}
+
+	// Print the number of paths and schemas in the document
+	fmt.Printf("There are %d paths and %d schemas in the document", nbPaths, nbSchemas)
 
 	return v3Model.Model.Components, nil
 }
@@ -46,8 +62,80 @@ func fromComponentsToSQL(doc *v3.Components) (string, error) {
 
 	schemas := doc.Schemas
 	print(schemas)
+
+	var tableDefinitions []tables.Table
+
+	for schema := schemas.First(); schema != nil; schema = schema.Next() {
+		table := tables.Table{
+			Name: inflection.Plural(strings.ToLower(schema.Key())),
+		}
+		properties := schema.Value().Schema().Properties
+
+		var columns []tables.Column
+
+		for property := properties.First(); property != nil; property = property.Next() {
+			subSchema := property.Value().Schema()
+			columnName := property.Key()
+
+			var dataType string
+			if len(subSchema.Type) > 0 {
+				dataType = subSchema.Type[0]
+			} else {
+				fmt.Printf("No data type found for property: %s\n", columnName)
+				continue
+			}
+
+			// Detect if the property is a $ref to another schema
+			ref := property.Value().GetReference()
+			if ref != "" {
+				dataType = "integer"
+				// refName := strings.ToLower(strings.Split(ref, "/")[len(strings.Split(ref, "/"))-1])
+				table.ForeignKeys = append(table.ForeignKeys, columnName)
+				columnName = columnName + "_id"
+				dataType = "integer"
+			}
+
+			columns = append(columns, tables.Column{
+				Name:       columnName,
+				DataType:   dataType,
+				PrimaryKey: columnName == "id",
+				NotNull:    subSchema.Nullable != nil && !*subSchema.Nullable,
+				IsDefault:  subSchema.Default != nil,
+				IsString:   dataType == "string",
+			})
+		}
+
+		// If there is no column, no need to create a table
+		if len(columns) != 0 {
+			table.ColumnDefinition = columns
+			tableDefinitions = append(tableDefinitions, table)
+		}
+	}
+
+	var query string
+
+	for _, table := range tableDefinitions {
+		statement, err := table.GetSQL()
+		if err != nil {
+			return "", err
+		}
+		query += "\n\n"
+		query += statement
+	}
+
+	slog.Debug(query)
+
+	normalizedQuery, err := pg_query.Normalize(query)
+	if err != nil {
+		slog.Error("Error checking and normalizing query %s", query, err)
+		return "", err
+	}
+
+	slog.Debug("-------------")
+	slog.Debug(normalizedQuery)
+
 	// Placeholder SQL generation logic
-	return "SELECT * FROM information_schema.tables;", nil
+	return normalizedQuery, nil
 }
 
 func OpenAPISpecToSQL(openAPISpec []byte) (string, error) {
