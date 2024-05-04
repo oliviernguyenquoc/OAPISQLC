@@ -104,13 +104,18 @@ func NewTableFromSchema(tableName string, schema orderedmap.Pair[string, *highba
 			dataType = "integer"
 		}
 
+		// Handle default value
+		defaultValue := ""
+		if columnSchema.Default != nil {
+			defaultValue = columnSchema.Default.Value
+		}
+
 		table.ColumnDefinition = append(table.ColumnDefinition, Column{
-			Name:       columnName,
-			DataType:   dataType,
-			PrimaryKey: columnName == "id",
-			NotNull:    columnSchema.Nullable != nil && !*columnSchema.Nullable,
-			IsDefault:  columnSchema.Default != nil,
-			IsString:   dataType == "string",
+			Name:         columnName,
+			DataType:     dataType,
+			PrimaryKey:   columnName == "id",
+			NotNull:      columnSchema.Nullable != nil && !*columnSchema.Nullable,
+			DefaultValue: defaultValue,
 		})
 	}
 

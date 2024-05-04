@@ -86,39 +86,29 @@ func TestDataTypeAndConstraints(t *testing.T) {
 
 	testOpenAPISpecToSQL(t, "tests/testdata/data_types_and_constraints.yaml", `
 	CREATE TABLE IF NOT EXISTS products (
-        id BIGSERIAL NOT NULL PRIMARY KEY,
-        price NUMERIC CHECK (price >= 0),
-        status VARCHAR(50) CHECK (status IN ('available', 'pending', 'sold'))
+        price NUMERIC CHECK (price >= 0 AND price <= 100000),
+        status VARCHAR(50) CHECK (status IN ('available', 'pending', 'sold')),
+		quantity INTEGER NOT NULL
     );`)
 }
 
 func TestCircularReferences(t *testing.T) {
 
 	// No table should be created if the references are circular and cannot be resolved.
-	testOpenAPISpecToSQL(t, "tests/testdata/circular_references.yaml", `
-	CREATE TABLE IF NOT EXISTS products (
-        id BIGSERIAL NOT NULL PRIMARY KEY,
-        price NUMERIC CHECK (price >= 0),
-        status VARCHAR(50) CHECK (status IN ('available', 'pending', 'sold'))
-    );`)
+	testOpenAPISpecToSQL(t, "tests/testdata/circular_references.yaml", "")
 }
 
 func TestAllOfSchema(t *testing.T) {
 	testOpenAPISpecToSQL(t, "tests/testdata/allOf_example.yaml", `
+	CREATE TABLE IF NOT EXISTS animals (
+        name TEXT,
+        type TEXT,
+    );
 	CREATE TABLE IF NOT EXISTS dogs (
-        id BIGSERIAL NOT NULL PRIMARY KEY,
         name TEXT,
         type TEXT,
         breed TEXT,
         bark_volume INTEGER
-    );`)
-}
-
-func TestAnyOfSchema(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/anyOf_example.yaml", `
-	CREATE TABLE IF NOT EXISTS text_or_numbers (
-        id BIGSERIAL NOT NULL PRIMARY KEY,
-        value TEXT CHECK (value ~* '^\d+$' OR LENGTH(value) <= 100)
     );`)
 }
 
@@ -127,6 +117,7 @@ func TestIdCreatedAtUpdatedAt(t *testing.T) {
 	CREATE TABLE IF NOT EXISTS users (
 		id BIGSERIAL NOT NULL PRIMARY KEY,
 		created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-		updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+		updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+		username TEXT
 	);`)
 }

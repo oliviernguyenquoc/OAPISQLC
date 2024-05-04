@@ -10,9 +10,13 @@ components:
         price:
           type: number
           minimum: 0
+          maximum: 100000
         status:
           type: string
           enum:
             - available
             - pending
             - sold
+        quantity:
+          type: integer
+          required: true

@@ -24,8 +24,6 @@ func parseOpenAPISpec(openAPISpec []byte) (*v3.Components, error) {
 
 	// because we know this is a v3 spec, we can build a ready to go model from it.
 	v3Model, errors := document.BuildV3Model()
-
-	// if anything went wrong when building the v3 model, a slice of errors will be returned
 	if len(errors) > 0 {
 		for i := range errors {
 			fmt.Printf("error: %e\n", errors[i])

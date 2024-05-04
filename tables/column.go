@@ -6,12 +6,11 @@ import (
 )
 
 type Column struct {
-	Name       string
-	DataType   string
-	NotNull    bool
-	IsDefault  bool
-	IsString   bool
-	PrimaryKey bool
+	Name         string
+	DataType     string
+	NotNull      bool
+	DefaultValue string
+	PrimaryKey   bool
 }
 
 var datatypeMap = map[string]string{
@@ -35,19 +34,26 @@ var datatypeMap = map[string]string{
 func (c Column) getSQL() (string, error) {
 	var sb strings.Builder
 
-	var pgDataType, dataType string
+	var pgDataType string
 	var ok bool
 
 	pgDataType, ok = datatypeMap[c.DataType]
 	if !ok {
-		fmt.Printf("Unknown data type: %s\n", dataType)
-		return "", fmt.Errorf("unknown data type: %s", dataType)
+		fmt.Printf("Unknown data type: %s\n", c.DataType)
+		return "", fmt.Errorf("unknown data type: %s", c.DataType)
 	}
 
 	// Handle special case for id column
 	if c.Name == "id" && pgDataType == "INTEGER" {
 		pgDataType = "BIGSERIAL"
 		c.NotNull = true
+	}
+
+	// Handle special case for created_at and updated_at columns
+	if c.Name == "created_at" || c.Name == "updated_at" {
+		pgDataType = "TIMESTAMP"
+		c.NotNull = true
+		c.DefaultValue = "NOW()"
 	}
 
 	sb.WriteString(fmt.Sprintf("%s %s", c.Name, pgDataType))
@@ -60,11 +66,11 @@ func (c Column) getSQL() (string, error) {
 		sb.WriteString(" PRIMARY KEY")
 	}
 
-	if c.IsDefault {
-		if c.IsString {
-			sb.WriteString(fmt.Sprintf(" DEFAULT '%s'", c.IsDefault))
+	if c.DefaultValue != "" {
+		if pgDataType == "TEXT" {
+			sb.WriteString(fmt.Sprintf(" DEFAULT '%s'", c.DefaultValue))
 		} else {
-			sb.WriteString(fmt.Sprintf(" DEFAULT %s", c.IsDefault))
+			sb.WriteString(fmt.Sprintf(" DEFAULT %s", c.DefaultValue))
 		}
 	}
 
