@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strings"
 
-	inflection "github.com/jinzhu/inflection"
 	tables "github.com/oliviernguyenquoc/oas2pgschema/tables"
 	"github.com/pb33f/libopenapi"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
@@ -57,58 +55,19 @@ func parseOpenAPISpec(openAPISpec []byte) (*v3.Components, error) {
 }
 
 // fromComponentsToSQL takes a parsed OpenAPI document and generates a SQL statement.
-// This is a placeholder function that should be replaced with actual logic based on the OpenAPI spec.
 func fromComponentsToSQL(doc *v3.Components) (string, error) {
 
 	schemas := doc.Schemas
-	print(schemas)
 
 	var tableDefinitions []tables.Table
 
 	for schema := schemas.First(); schema != nil; schema = schema.Next() {
-		table := tables.Table{
-			Name: inflection.Plural(strings.ToLower(schema.Key())),
-		}
-		properties := schema.Value().Schema().Properties
-
-		var columns []tables.Column
-
-		for property := properties.First(); property != nil; property = property.Next() {
-			subSchema := property.Value().Schema()
-			columnName := property.Key()
-
-			var dataType string
-			if len(subSchema.Type) > 0 {
-				dataType = subSchema.Type[0]
-			} else {
-				fmt.Printf("No data type found for property: %s\n", columnName)
-				continue
-			}
-
-			// Detect if the property is a $ref to another schema
-			ref := property.Value().GetReference()
-			if ref != "" {
-				dataType = "integer"
-				// refName := strings.ToLower(strings.Split(ref, "/")[len(strings.Split(ref, "/"))-1])
-				table.ForeignKeys = append(table.ForeignKeys, columnName)
-				columnName = columnName + "_id"
-				dataType = "integer"
-			}
-
-			columns = append(columns, tables.Column{
-				Name:       columnName,
-				DataType:   dataType,
-				PrimaryKey: columnName == "id",
-				NotNull:    subSchema.Nullable != nil && !*subSchema.Nullable,
-				IsDefault:  subSchema.Default != nil,
-				IsString:   dataType == "string",
-			})
-		}
+		tableName := schema.Key()
+		table := tables.NewTableFromSchema(tableName, schema)
 
 		// If there is no column, no need to create a table
-		if len(columns) != 0 {
-			table.ColumnDefinition = columns
-			tableDefinitions = append(tableDefinitions, table)
+		if len(table.ColumnDefinition) != 0 {
+			tableDefinitions = append(tableDefinitions, *table)
 		}
 	}
 

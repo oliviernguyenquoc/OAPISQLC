@@ -72,7 +72,7 @@ func TestComponentReferences(t *testing.T) {
 	testOpenAPISpecToSQL(t, "tests/testdata/component_references.yaml", `
 	CREATE TABLE IF NOT EXISTS users (
         id bigserial NOT NULL PRIMARY KEY,
-        address_id BIGINT
+        address_id INTEGER,
 		FOREIGN KEY (address_id) REFERENCES addresses (id)
     );
     CREATE TABLE IF NOT EXISTS addresses (
