@@ -102,7 +102,7 @@ func TestAllOfSchema(t *testing.T) {
 	testOpenAPISpecToSQL(t, "tests/testdata/allOf_example.yaml", `
 	CREATE TABLE IF NOT EXISTS animals (
         name TEXT,
-        type TEXT,
+        type TEXT
     );
 	CREATE TABLE IF NOT EXISTS dogs (
         name TEXT,

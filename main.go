@@ -6,7 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	tables "github.com/oliviernguyenquoc/oas2pgschema/tables"
+	"github.com/oliviernguyenquoc/oas2pgschema/dbSchema"
 	"github.com/pb33f/libopenapi"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 	pg_query "github.com/pganalyze/pg_query_go"
@@ -58,11 +58,11 @@ func fromComponentsToSQL(doc *v3.Components) (string, error) {
 
 	schemas := doc.Schemas
 
-	var tableDefinitions []tables.Table
+	var tableDefinitions []dbSchema.Table
 
 	for schema := schemas.First(); schema != nil; schema = schema.Next() {
 		tableName := schema.Key()
-		table := tables.NewTableFromSchema(tableName, schema)
+		table := dbSchema.NewTableFromSchema(tableName, schema)
 
 		// If there is no column, no need to create a table
 		if len(table.ColumnDefinition) != 0 {
