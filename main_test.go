@@ -12,12 +12,12 @@ func compareSQL(t *testing.T, expectedSQL, actualSQL string) {
 
 	expectedTree, err := pg_query.Parse(expectedSQL)
 	if err != nil {
-		t.Fatalf("Error parsing expected SQL: %v", err)
+		t.Errorf("Error parsing expected SQL: %v", err)
 	}
 
 	actualTree, err := pg_query.Parse(actualSQL)
 	if err != nil {
-		t.Fatalf("Error parsing actual SQL: %v", err)
+		t.Errorf("Error parsing actual SQL: %v", err)
 	}
 
 	if actualTree.Fingerprint() != expectedTree.Fingerprint() {
@@ -34,12 +34,12 @@ func compareSQL(t *testing.T, expectedSQL, actualSQL string) {
 func testOpenAPISpecToSQL(t *testing.T, filename, expectedSQL string) {
 	apiSpec, err := os.ReadFile(filename)
 	if err != nil {
-		t.Fatalf("Error reading OpenAPI spec: %v", err)
+		t.Errorf("Error reading OpenAPI spec: %v", err)
 	}
 
 	sql, err := OpenAPISpecToSQL(apiSpec)
 	if err != nil {
-		t.Fatalf("Error transforming OpenAPI to SQL: %v", err)
+		t.Errorf("Error transforming OpenAPI to SQL: %v", err)
 	}
 
 	compareSQL(t, expectedSQL, sql)
@@ -119,5 +119,20 @@ func TestIdCreatedAtUpdatedAt(t *testing.T) {
 		created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 		updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 		username TEXT
+	);`)
+}
+
+func TestArrayOfRef(t *testing.T) {
+	testOpenAPISpecToSQL(t, "tests/testdata/array_of_ref.yaml", `
+	CREATE TABLE IF NOT EXISTS pets (
+		id BIGSERIAL NOT NULL PRIMARY KEY,
+		name TEXT NOT NULL,
+		tag_id INTEGER,
+		FOREIGN KEY (tag_id) REFERENCES tags(id)
+	);
+
+	CREATE TABLE IF NOT EXISTS tags (
+		id BIGSERIAL NOT NULL PRIMARY KEY,
+		name TEXT
 	);`)
 }

@@ -1,9 +1,62 @@
 # OpenAPI to PostgreSQL Schema (DDL) Library
 
-This library transforms OpenAPI specifications into a PostgreSQL schema (Data Definition Language - DDL). The goal is to generate CREATE statements based on OpenAPI specifications. 
+This library transforms [OpenAPI](https://github.com/OAI/OpenAPI-Specification) specifications into a PostgreSQL schema (Data Definition Language - DDL). The goal is to generate CREATE statements based on OpenAPI specifications. 
 
 It **only takes Components/Schemas** section of OpenAPI Spec.
 
+## Example
+
+MyOpenAPISpec.YAML:
+```YAML
+openapi: 3.1.0
+info:
+  title: Complex Properties Schema Test
+  version: 1.0.0
+components:
+  schemas:
+    Pet:
+      type: object
+      required:
+        - name
+        - photoUrls
+      properties:
+        id:
+          type: integer
+          format: int64
+        category:
+          $ref: '#/components/schemas/Category'
+        name:
+          type: string
+        photoUrls:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+    Tag:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+```
+
+It returns:
+```sql
+
+```
 
 ## Features
 
@@ -64,6 +117,7 @@ Read more in this [blog post]().
 * Only OpenAPI 3.1 compatible
 * Only compatible with YAML input
 * Only take schemas under Component/Schemas OpenAPI specs
+* Does not support foreign keys other than "id" columns
 
 ## Need to be done
 

@@ -19,7 +19,7 @@ func parseOpenAPISpec(openAPISpec []byte) (*v3.Components, error) {
 	// create a new document from specification bytes
 	document, err := libopenapi.NewDocument(openAPISpec)
 	if err != nil {
-		panic(fmt.Sprintf("cannot create new document: %e", err))
+		return nil, fmt.Errorf("cannot create document from OpenAPI spec: %v", err)
 	}
 
 	// because we know this is a v3 spec, we can build a ready to go model from it.
@@ -28,8 +28,8 @@ func parseOpenAPISpec(openAPISpec []byte) (*v3.Components, error) {
 		for i := range errors {
 			fmt.Printf("error: %e\n", errors[i])
 		}
-		panic(fmt.Sprintf("cannot create v3 model from document: %d errors reported",
-			len(errors)))
+
+		return nil, fmt.Errorf("cannot create v3 model from document: %d errors reported", len(errors))
 	}
 
 	// Get a count of the number of paths and schemas.

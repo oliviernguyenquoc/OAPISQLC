@@ -51,7 +51,7 @@ func (t Table) GetSQL() (string, error) {
 		if err != nil {
 			return "", err
 		}
-		// sb.WriteString("    ")
+
 		sb.WriteString(statement)
 		if i < len(t.ColumnDefinition)-1 {
 			sb.WriteString(",\n")
@@ -60,7 +60,7 @@ func (t Table) GetSQL() (string, error) {
 
 	// Add foreign keys
 	for _, fk := range t.ForeignKeys {
-		sb.WriteString(fmt.Sprintf(",\n    FOREIGN KEY (%s_id) REFERENCES %s(id)", fk, inflection.Plural(fk)))
+		sb.WriteString(fmt.Sprintf(",\n    FOREIGN KEY (%s_id) REFERENCES %s(id)", inflection.Singular(fk), inflection.Plural(fk)))
 	}
 
 	sb.WriteString("\n);")
@@ -88,10 +88,10 @@ func getColumnDefinition(properties orderedmap.Map[string, *highbase.SchemaProxy
 
 		// Detect if the property is a $ref to another schema
 		ref := property.Value().GetReference()
-		if ref != "" {
-			dataType = "integer"
+
+		if ref != "" || (dataType == "array" && columnSchema.Items != nil && columnSchema.Items.A.Schema().Properties != nil) {
 			foreignKeys = append(foreignKeys, columnName)
-			columnName = columnName + "_id"
+			columnName = inflection.Singular(columnName) + "_id"
 			dataType = "integer"
 		}
 
