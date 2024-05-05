@@ -69,21 +69,10 @@ func (t Table) GetSQL() (string, error) {
 
 }
 
-func NewTableFromSchema(tableName string, schema orderedmap.Pair[string, *highbase.SchemaProxy]) *Table {
-	table := Table{
-		Name: inflection.Plural(strings.ToLower(schema.Key())),
-	}
+func getColumnDefinition(properties orderedmap.Map[string, *highbase.SchemaProxy], requiredColums []string) ([]Column, []string) {
 
-	properties := schema.Value().Schema().Properties
-
-	// Check if there is a custom extension x-database-entity
-	if schema.Value().Schema().Extensions != nil {
-		if val, ok := schema.Value().Schema().Extensions.Get("x-database-entity"); ok && val.Value == "false" {
-			return &table
-		}
-	}
-
-	requiredColums := schema.Value().Schema().Required
+	columnDefinition := []Column{}
+	foreignKeys := []string{}
 
 	for property := properties.First(); property != nil; property = property.Next() {
 		columnName := property.Key()
@@ -101,7 +90,7 @@ func NewTableFromSchema(tableName string, schema orderedmap.Pair[string, *highba
 		ref := property.Value().GetReference()
 		if ref != "" {
 			dataType = "integer"
-			table.ForeignKeys = append(table.ForeignKeys, columnName)
+			foreignKeys = append(foreignKeys, columnName)
 			columnName = columnName + "_id"
 			dataType = "integer"
 		}
@@ -118,7 +107,7 @@ func NewTableFromSchema(tableName string, schema orderedmap.Pair[string, *highba
 			enumValues = append(enumValues, node.Value)
 		}
 
-		table.ColumnDefinition = append(table.ColumnDefinition, Column{
+		columnDefinition = append(columnDefinition, Column{
 			Name:         columnName,
 			DataType:     dataType,
 			PrimaryKey:   columnName == "id",
@@ -130,6 +119,36 @@ func NewTableFromSchema(tableName string, schema orderedmap.Pair[string, *highba
 				Enum:    enumValues,
 			},
 		})
+	}
+	return columnDefinition, foreignKeys
+}
+
+func NewTableFromSchema(tableName string, schema *highbase.Schema) *Table {
+	table := Table{
+		Name: inflection.Plural(strings.ToLower(tableName)),
+	}
+
+	properties := schema.Properties
+
+	// Check if there is a custom extension x-database-entity
+	if schema.Extensions != nil {
+		if val, ok := schema.Extensions.Get("x-database-entity"); ok && val.Value == "false" {
+			return &table
+		}
+	}
+
+	requiredColums := schema.Required
+
+	// Check if there is allOf in the schema
+	if schema.AllOf != nil {
+		for _, item := range schema.AllOf {
+			requiredColums = append(requiredColums, item.Schema().Required...)
+			colDef, fk := getColumnDefinition(*item.Schema().Properties, requiredColums)
+			table.ColumnDefinition = append(table.ColumnDefinition, colDef...)
+			table.ForeignKeys = append(table.ForeignKeys, fk...)
+		}
+	} else {
+		table.ColumnDefinition, table.ForeignKeys = getColumnDefinition(*properties, requiredColums)
 	}
 
 	return &table

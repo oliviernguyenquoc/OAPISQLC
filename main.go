@@ -62,7 +62,7 @@ func fromComponentsToSQL(doc *v3.Components) (string, error) {
 
 	for schema := schemas.First(); schema != nil; schema = schema.Next() {
 		tableName := schema.Key()
-		table := dbSchema.NewTableFromSchema(tableName, schema)
+		table := dbSchema.NewTableFromSchema(tableName, schema.Value().Schema())
 
 		// If there is no column, no need to create a table
 		if len(table.ColumnDefinition) != 0 {
@@ -102,14 +102,14 @@ func OpenAPISpecToSQL(openAPISpec []byte) (string, error) {
 	doc, err := parseOpenAPISpec(openAPISpec)
 	if err != nil {
 		fmt.Printf("Failed to parse OpenAPI spec: %v\n", err)
-		os.Exit(1)
+		return "", err
 	}
 
 	// Generate SQL statement based on the OpenAPI spec
 	sqlStatement, err := fromComponentsToSQL(doc)
 	if err != nil {
 		fmt.Printf("Failed to generate SQL: %v\n", err)
-		os.Exit(1)
+		return "", err
 	}
 
 	return sqlStatement, nil
@@ -123,7 +123,7 @@ func main() {
 
 	filePath := os.Args[1]
 
-	// load an OpenAPI 3 specification from bytes
+	// load an OpenAPI 3.1 specification from bytes
 	openAPISpec, err := os.ReadFile(filePath)
 	if err != nil {
 		fmt.Printf("Failed to read OpenAPI spec: %v\n", err)

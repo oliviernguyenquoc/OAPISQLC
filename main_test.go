@@ -101,14 +101,14 @@ func TestCircularReferences(t *testing.T) {
 func TestAllOfSchema(t *testing.T) {
 	testOpenAPISpecToSQL(t, "tests/testdata/allOf_example.yaml", `
 	CREATE TABLE IF NOT EXISTS animals (
-        name TEXT,
-        type TEXT
+        name TEXT NOT NULL,
+        type TEXT NOT NULL
     );
 	CREATE TABLE IF NOT EXISTS dogs (
-        name TEXT,
-        type TEXT,
-        breed TEXT,
-        bark_volume INTEGER
+        name TEXT  NOT NULL,
+        type TEXT  NOT NULL,
+        breed TEXT  NOT NULL,
+        barkVolume INTEGER
     );`)
 }
 

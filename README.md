@@ -1,28 +1,73 @@
-# Library to transform an OpenAPI specs to a postgreSQL schema (DDL)
+# OpenAPI to PostgreSQL Schema (DDL) Library
 
-The goal is to have CREATE statements than to Data Definition Language (DDL) based on OpenAPI specifications
+This library transforms OpenAPI specifications into a PostgreSQL schema (Data Definition Language - DDL). The goal is to generate CREATE statements based on OpenAPI specifications. 
 
-Feature:
+It **only takes Components/Schemas** section of OpenAPI Spec.
 
-* You can add `x-database-entity: false` [extension](https://swagger.io/docs/specification/openapi-extensions/) in your OpenAPI specs to ignore a specific schema in the SQL schema generation
-* Id, updated_at, created_at special case
 
-Future possible features:
+## Features
 
-* Usage of `x-primary-key` and `x-autoincrement` extension (like in openalchemy)
+- Transform Components/Schemas into PostgreSQL create statements
+- Add `x-database-entity: false` [extension](https://swagger.io/docs/specification/openapi-extensions/) in your OpenAPI specs to ignore a specific schema in the SQL schema generation.
+- AllOf decleration are handled
+- Special cases handling for Id, updated_at, created_at: Detect these fields
+    - Associate "BIGSERIAL NOT NULL PRIMARY KEY" for 'id' field and 
+    - Associate "TIMESTAMP NOT NULL DEFAULT NOW()" for created_at and updated_at
 
-Known limitations:
+## Usage
 
-* Only OpenAPI 3.1 compatible
-* Only take schemas under Component/Schemas OpenAPI specs
+You can use the library either in CLI or in Go.
+
+### In CLI
+
+Run: `go build`
+
+Then: `./oas2pgschema YOUR_OPENAPI.yaml`
+
+### In Go:
+
+```go
+import (
+    "os"
+    "https://github.com/oliviernguyenquoc/oas2pgschema"
+)
+
+openAPISpec, err := os.ReadFile(filePath)
+if err != nil {
+    fmt.Printf("Failed to read OpenAPI spec: %v\n", err)
+    os.Exit(1)
+}
+
+sqlStatement, err := oas2pgschema.OpenAPISpecToSQL(openAPISpec)
+if err != nil {
+    fmt.Printf("Failed to transform OpenAPI spec to SQL: %v\n", err)
+    os.Exit(1)
+}
+```
 
 ## Motivation
 
-SQLC
+This library allows you to kickstart your API development by auto-generating DDL scripts. 
+
+By combining it with [SQLC](https://sqlc.dev/), you can generate the foundation of your API.
+
+Moreover, you can easily have a full automatic testing software by combining contract-testing with [Microcks](https://microcks.io) and [TestContainers](https://golang.testcontainers.org/).
+
+Read more in this [blog post]().
+
+## Future possible features:
+
+* Usage of `x-primary-key` and `x-autoincrement` extension (like in openalchemy)
+
+## Known limitations:
+
+* Only OpenAPI 3.1 compatible
+* Only compatible with YAML input
+* Only take schemas under Component/Schemas OpenAPI specs
 
 ## Need to be done
 
-* Solve tests
+* Waiting for this issue to be solved: https://github.com/pb33f/libopenapi/issues/286
 
 ## Openapi Data Type to MySQL Data Type mapping
 
@@ -43,6 +88,18 @@ SQLC
 | `array`           |                     | `JSON`                |
 | `object`          |                     | `JSON`                |
 | `\Model\User` (referenced definition) | | `TEXT`                |
+
+## Contributing
+
+We welcome contributions from the community.
+
+## License
+
+This project is licensed under the [MIT License](). See the LICENSE file for details.
+
+## Contact
+
+If you have any questions or suggestions, please open an issue on GitHub.
 
 
 Inspired by [openapi-generator](https://github.com/OpenAPITools/openapi-generator) and [openalchemy](https://openapi-sqlalchemy.readthedocs.io)
