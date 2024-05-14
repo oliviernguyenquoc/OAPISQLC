@@ -4,8 +4,14 @@ info:
   version: 1.0.0
 components:
   schemas:
-    Node:
-      type: object
+    One:
       properties:
-        next:
-          $ref: '#/components/schemas/Node'
+        thing:
+          "$ref": "#/components/schemas/Two"
+      required:
+        - thing
+    Two:
+      description: "test two"
+      properties:
+        testThing:
+          "$ref": "#/components/schemas/One"

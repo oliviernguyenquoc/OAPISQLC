@@ -1,0 +1,13 @@
+openapi: 3.1.0
+info:
+  title: Circular References Test - Parsing Error
+  version: 1.0.0
+components:
+  schemas:
+    Node:
+      type: object
+      required:
+        - next
+      properties:
+        next:
+          $ref: '#/components/schemas/Node'

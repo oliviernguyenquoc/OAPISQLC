@@ -32,6 +32,7 @@ func compareSQL(t *testing.T, expectedSQL, actualSQL string) {
 }
 
 func testOpenAPISpecToSQL(t *testing.T, filename, expectedSQL string) {
+
 	apiSpec, err := os.ReadFile(filename)
 	if err != nil {
 		t.Errorf("Error reading OpenAPI spec: %v", err)
@@ -41,8 +42,22 @@ func testOpenAPISpecToSQL(t *testing.T, filename, expectedSQL string) {
 	if err != nil {
 		t.Errorf("Error transforming OpenAPI to SQL: %v", err)
 	}
-
 	compareSQL(t, expectedSQL, sql)
+}
+
+func testErrors(t *testing.T, filename string) {
+	apiSpec, err := os.ReadFile(filename)
+	if err != nil {
+		t.Errorf("Error reading OpenAPI spec: %v", err)
+	}
+
+	_, errParsing := OpenAPISpecToSQL(apiSpec)
+
+	expectedErrorMsg := "cannot create v3 model from document: 1 errors reported"
+
+	if errParsing == nil || errParsing.Error() != expectedErrorMsg {
+		t.Errorf("Expected error message: %s, got: %v", expectedErrorMsg, errParsing)
+	}
 }
 
 func TestSimpleSchemaTransformation(t *testing.T) {
@@ -90,6 +105,12 @@ func TestDataTypeAndConstraints(t *testing.T) {
         status TEXT CHECK (status IN ('available', 'pending', 'sold')),
 		quantity INTEGER NOT NULL
     );`)
+}
+
+func TestCircularReferencesParsingError(t *testing.T) {
+
+	// Should return an error if there are circular references, detected during parsing.
+	testErrors(t, "tests/testdata/circular_references_parsing_error.yaml")
 }
 
 func TestCircularReferences(t *testing.T) {
