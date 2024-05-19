@@ -181,6 +181,10 @@ func NewTableFromSchema(tableName string, schema *highbase.Schema) *Table {
 	}
 
 	properties := schema.Properties
+	if properties == nil {
+		fmt.Printf("No properties found for schema: %s\n", tableName)
+		return &table
+	}
 
 	// Check if there is a custom extension x-database-entity
 	if schema.Extensions != nil {

@@ -18,7 +18,7 @@
             "request": "launch",
             "mode": "debug",
             "program": "${workspaceFolder}/main.go",
-            "args": ["test/testdata/complex_properties_schema.yaml"],
+            "args": ["petstore.yaml"],
             "cwd": "${workspaceFolder}"
         }
     ]
