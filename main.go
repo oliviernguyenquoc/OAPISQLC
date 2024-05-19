@@ -9,7 +9,7 @@ import (
 	"github.com/oliviernguyenquoc/oas2pgschema/dbSchema"
 	"github.com/pb33f/libopenapi"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
-	pg_query "github.com/pganalyze/pg_query_go"
+	pg_query "github.com/pganalyze/pg_query_go/v5"
 )
 
 // parseOpenAPISpec takes the path to an OpenAPI YAML file, parses it using the libopenapi library,

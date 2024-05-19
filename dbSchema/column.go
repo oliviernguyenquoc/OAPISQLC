@@ -19,6 +19,7 @@ type Column struct {
 	DefaultValue string
 	PrimaryKey   bool
 	Constraints  Constraints
+	Unique       bool
 }
 
 var datatypeMap = map[string]string{
@@ -113,6 +114,10 @@ func (c Column) getSQL() (string, error) {
 		} else {
 			sb.WriteString(fmt.Sprintf(" DEFAULT %s", c.DefaultValue))
 		}
+	}
+
+	if c.Unique {
+		sb.WriteString(" UNIQUE")
 	}
 
 	return sb.String(), nil

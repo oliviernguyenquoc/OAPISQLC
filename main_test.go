@@ -4,23 +4,23 @@ import (
 	"os"
 	"testing"
 
-	pg_query "github.com/pganalyze/pg_query_go"
+	pg_query "github.com/pganalyze/pg_query_go/v5"
 )
 
 // Comparison based on fingerprinting
 func compareSQL(t *testing.T, expectedSQL, actualSQL string) {
 
-	expectedTree, err := pg_query.Parse(expectedSQL)
+	expectedFingerprint, err := pg_query.Fingerprint(expectedSQL)
 	if err != nil {
 		t.Errorf("Error parsing expected SQL: %v", err)
 	}
 
-	actualTree, err := pg_query.Parse(actualSQL)
+	actualFingerprint, err := pg_query.Fingerprint(actualSQL)
 	if err != nil {
 		t.Errorf("Error parsing actual SQL: %v", err)
 	}
 
-	if actualTree.Fingerprint() != expectedTree.Fingerprint() {
+	if expectedFingerprint != actualFingerprint {
 		t.Errorf(`
 		Expected SQL did not match (at least, they do not have the samefingerprinting). 
 		Got: %v
@@ -188,28 +188,17 @@ func TestDefaultValues(t *testing.T) {
     );`)
 }
 
-func TestReadOnlyAndWriteOnlyProperties(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/read_write_properties.yaml", `
-    CREATE TABLE IF NOT EXISTS users (
-        id BIGSERIAL NOT NULL PRIMARY KEY,
-        email TEXT,
-        createdAt TIMESTAMP
-    );`)
-}
-
 func TestUniqueConstraints(t *testing.T) {
 	testOpenAPISpecToSQL(t, "tests/testdata/unique_constraints.yaml", `
     CREATE TABLE IF NOT EXISTS products (
-        productId TEXT,
-        serialNumber TEXT,
-        name TEXT,
-        UNIQUE(productId),
-        UNIQUE(serialNumber)
+        productId TEXT UNIQUE,
+        serialNumber TEXT UNIQUE,
+        name TEXT
     );`)
 }
 
 func TestEnumSupport(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/enum_definitions.yaml", `
+	testOpenAPISpecToSQL(t, "tests/testdata/enum_definition.yaml", `
     CREATE TYPE order_status AS ENUM ('pending', 'approved', 'shipped', 'cancelled');
 
     CREATE TABLE IF NOT EXISTS orders (

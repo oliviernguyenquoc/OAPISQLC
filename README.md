@@ -70,7 +70,6 @@ It returns:
 - [ ] **Column Constraint Support**
   - [X] Implement `NOT NULL` for non-nullable fields.
   - [ ] Support `DEFAULT` values based on the OpenAPI specifications.
-  - [ ] Handle `readOnly` and `writeOnly` properties if applicable to PostgreSQL.
 
 - [X] **Primary Key Identification**
   - Consider columns `id` as primary keys ("BIGSERIAL NOT NULL PRIMARY KEY")

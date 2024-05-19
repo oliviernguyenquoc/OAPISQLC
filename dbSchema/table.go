@@ -112,6 +112,11 @@ func getColumnDefinition(properties orderedmap.Map[string, *highbase.SchemaProxy
 			enumValues = append(enumValues, node.Value)
 		}
 
+		var unique bool
+		if columnSchema.UniqueItems != nil && *columnSchema.UniqueItems {
+			unique = true
+		}
+
 		columnDefinition = append(columnDefinition, Column{
 			Name:         columnName,
 			DataType:     dataType,
@@ -124,6 +129,7 @@ func getColumnDefinition(properties orderedmap.Map[string, *highbase.SchemaProxy
 				Maximum: columnSchema.Maximum,
 				Enum:    enumValues,
 			},
+			Unique: unique,
 		})
 	}
 	return columnDefinition, foreignKeys
