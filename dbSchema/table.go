@@ -86,6 +86,11 @@ func getColumnDefinition(properties orderedmap.Map[string, *highbase.SchemaProxy
 			continue
 		}
 
+		var dataFormat string
+		if len(columnSchema.Format) > 0 {
+			dataFormat = columnSchema.Format
+		}
+
 		// Detect if the property is a $ref to another schema
 		ref := property.Value().GetReference()
 
@@ -110,6 +115,7 @@ func getColumnDefinition(properties orderedmap.Map[string, *highbase.SchemaProxy
 		columnDefinition = append(columnDefinition, Column{
 			Name:         columnName,
 			DataType:     dataType,
+			DataFormat:   dataFormat,
 			PrimaryKey:   columnName == "id",
 			NotNull:      (columnSchema.Nullable != nil && !*columnSchema.Nullable) || slices.Contains(requiredColums, columnName),
 			DefaultValue: defaultValue,
@@ -123,9 +129,23 @@ func getColumnDefinition(properties orderedmap.Map[string, *highbase.SchemaProxy
 	return columnDefinition, foreignKeys
 }
 
+func ToSnakeCase(s string) string {
+	var result string
+
+	for i, v := range s {
+		if i > 0 && v >= 'A' && v <= 'Z' {
+			result += "_"
+		}
+
+		result += string(v)
+	}
+
+	return strings.ToLower(result)
+}
+
 func NewTableFromSchema(tableName string, schema *highbase.Schema) *Table {
 	table := Table{
-		Name: inflection.Plural(strings.ToLower(tableName)),
+		Name: inflection.Plural(ToSnakeCase(tableName)),
 	}
 
 	properties := schema.Properties

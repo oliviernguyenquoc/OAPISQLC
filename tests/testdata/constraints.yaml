@@ -1,0 +1,31 @@
+openapi: 3.1.0
+info:
+  title: Constraint Test API
+  version: 1.0.0
+components:
+  schemas:
+    Product:
+      type: object
+      properties:
+        productId:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        productName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        productPrice:
+          type: number
+          minimum: 0.01
+          maximum: 9999.99
+        productCode:
+          type: string
+          pattern: '^[A-Z0-9]{10}$'
+        description:
+          type: string
+          nullable: true
+        releaseDate:
+          type: string
+          format: date
+          default: '2023-01-01'

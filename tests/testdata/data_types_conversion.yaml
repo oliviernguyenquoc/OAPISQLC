@@ -1,0 +1,47 @@
+openapi: 3.1.0
+info:
+  title: Data Type Schema Test
+  version: 1.0.0
+components:
+  schemas:
+    DataTypeExample:
+      type: object
+      properties:
+        smallInt:
+          type: integer
+          format: int32
+        bigInt:
+          type: integer
+          format: int64
+        booleanValue:
+          type: boolean
+        floatValue:
+          type: number
+          format: float
+        doubleValue:
+          type: number
+          format: double
+        simpleText:
+          type: string
+        byteData:
+          type: string
+          format: byte
+        binaryData:
+          type: string
+          format: binary
+        fileData:
+          type: file
+        dateValue:
+          type: string
+          format: date
+        dateTimeValue:
+          type: string
+          format: date-time
+        arrayValue:
+          type: array
+          items:
+            type: string
+        objectValue:
+          type: object
+          additionalProperties:
+            type: string

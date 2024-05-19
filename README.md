@@ -58,14 +58,45 @@ It returns:
 
 ```
 
+
 ## Features
 
-- Transform Components/Schemas into PostgreSQL create statements
-- Add `x-database-entity: false` [extension](https://swagger.io/docs/specification/openapi-extensions/) in your OpenAPI specs to ignore a specific schema in the SQL schema generation.
-- AllOf decleration are handled
-- Special cases handling for Id, updated_at, created_at: Detect these fields
-    - Associate "BIGSERIAL NOT NULL PRIMARY KEY" for 'id' field and 
-    - Associate "TIMESTAMP NOT NULL DEFAULT NOW()" for created_at and updated_at
+- [X] **Schema to Table Mapping**
+  - Convert OpenAPI `components.schemas` into PostgreSQL table definitions.
+  
+- [X] **Column Definition Extraction**
+  - Map OpenAPI property types to PostgreSQL data types.
+
+- [ ] **Column Constraint Support**
+  - [X] Implement `NOT NULL` for non-nullable fields.
+  - [ ] Support `DEFAULT` values based on the OpenAPI specifications.
+  - [ ] Handle `readOnly` and `writeOnly` properties if applicable to PostgreSQL.
+
+- [X] **Primary Key Identification**
+  - Consider columns `id` as primary keys ("BIGSERIAL NOT NULL PRIMARY KEY")
+
+- [X] **Updated_at and Created_at handling**
+  - Associate "TIMESTAMP NOT NULL DEFAULT NOW()" for created_at and updated_at
+
+- [ ] **Unique Constraints**
+  - Add unique constraints to columns specified as unique in the OpenAPI document.
+
+- [X] **Foreign Key and Relationships**
+  - Analyze and create foreign key constraints based on relationships indicated between schemas ($ref)
+
+- [ ] **Complex Inheritance and Composition**
+  - Handle OpenAPI constructs like `allOf` for modeling table inheritance.
+
+- [ ] **Metadata Utilization**
+  - Use schema descriptions and other metadata to add comments to tables and columns in SQL.
+
+- [ ] **Support for Enums**
+  - Translate OpenAPI `enum` definitions into SQL check constraints or enumerated types.
+
+- [X] **Ignore schema with custom "x-database-entity" tag**
+
+All other parts of postgresql CREATE statement seems to not be included in OpenAPI specifications.
+
 
 ## Usage
 
@@ -110,7 +141,16 @@ Read more in this [blog post]().
 
 ## Future possible features:
 
-* Usage of `x-primary-key` and `x-autoincrement` extension (like in openalchemy)
+- Usage of `x-primary-key` and `x-autoincrement` extension (like in openalchemy)
+
+- [ ] **Partitioning Support**
+  - Implement table partitioning features if specified via OpenAPI extensions or conventions.
+
+- [ ] **Custom Extensions Handling**
+  - Recognize and process custom `x-` tags for advanced database features like partition keys and storage parameters.
+
+- [ ] **Advanced SQL Options**
+  - Generate SQL code that includes advanced table options such as tablespaces, storage parameters, and index options.
 
 ## Known limitations:
 
@@ -118,8 +158,11 @@ Read more in this [blog post]().
 * Only compatible with YAML input
 * Only take schemas under Component/Schemas OpenAPI specs
 * Does not support foreign keys other than "id" columns
+* `anyOf` and `oneOf` is not supported (see note)
 
-## Need to be done
+See note:
+
+While OpenAPI provides powerful schema composition tools such as `anyOf` and `oneOf`, these constructs do not have straightforward equivalents in SQL schema definitions due to their inherently flexible and non-deterministic nature. To maintain clarity and ensure the integrity of database structures, this tool does not support the direct transformation of these constructs into SQL. This decision helps avoid ambiguity in table definitions and keeps the transformation process simpler and more predictable.
 
 
 ## Openapi Data Type to MySQL Data Type mapping
@@ -219,6 +262,7 @@ referential_action in a FOREIGN KEY/REFERENCES constraint is:
 
 
 `CREATE TABLE table_name OF type_name`, `CREATE TABLE table_name PARTITION OF parent_table` OR `CREATE TABLE table_name AS` are not supported
+
 
 ## Contributing
 

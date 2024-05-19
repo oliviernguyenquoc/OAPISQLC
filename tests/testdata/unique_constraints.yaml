@@ -1,0 +1,17 @@
+openapi: 3.1.0
+info:
+  title: Unique Constraints Schema Test
+  version: 1.0.0
+components:
+  schemas:
+    product:
+      type: object
+      properties:
+        productId:
+          type: string
+          uniqueItems: true
+        serialNumber:
+          type: string
+          uniqueItems: true
+        name:
+          type: string

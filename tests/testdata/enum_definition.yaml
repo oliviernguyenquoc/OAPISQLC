@@ -1,0 +1,14 @@
+openapi: 3.1.0
+info:
+  title: Enum Definition Schema Test
+  version: 1.0.0
+components:
+  schemas:
+    order:
+      type: object
+      properties:
+        orderId:
+          type: integer
+        status:
+          type: string
+          enum: [pending, approved, shipped, cancelled]

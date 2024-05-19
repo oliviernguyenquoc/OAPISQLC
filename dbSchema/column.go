@@ -14,6 +14,7 @@ type Constraints struct {
 type Column struct {
 	Name         string
 	DataType     string
+	DataFormat   string
 	NotNull      bool
 	DefaultValue string
 	PrimaryKey   bool
@@ -21,21 +22,23 @@ type Column struct {
 }
 
 var datatypeMap = map[string]string{
-	"integer":       "INTEGER",
-	"int32":         "INTEGER",
-	"int64":         "BIGINT",
-	"boolean":       "BOOLEAN",
-	"number":        "NUMERIC",
-	"string":        "TEXT",
-	"byte":          "BYTEA",
-	"binary":        "BYTEA",
-	"file":          "BYTEA",
-	"date":          "DATE",
-	"date-time":     "TIMESTAMP",
-	"enum":          "TEXT",
-	"array":         "JSON",
-	"object":        "JSON",
-	"\\Model\\User": "TEXT",
+	"integer:":         "INTEGER",
+	"integer:int32":    "INTEGER",
+	"integer:int64":    "BIGINT",
+	"boolean:":         "BOOLEAN",
+	"number:":          "REAL",
+	"number:float":     "REAL",
+	"number:double":    "DOUBLE PRECISION",
+	"file:":            "BYTEA",
+	"string:":          "TEXT",
+	"string:byte":      "BYTEA",
+	"string:binary":    "BYTEA",
+	"string:date":      "DATE",
+	"string:date-time": "TIMESTAMP",
+	"string:enum":      "TEXT",
+	"array:":           "JSON",
+	"object:":          "JSON",
+	"\\Model\\User:":   "TEXT",
 }
 
 func buildConstraint(name string, minimum *float64, maximum *float64, enum []string) string {
@@ -69,14 +72,14 @@ func (c Column) getSQL() (string, error) {
 	var pgDataType string
 	var ok bool
 
-	pgDataType, ok = datatypeMap[c.DataType]
+	pgDataType, ok = datatypeMap[c.DataType+":"+c.DataFormat]
 	if !ok {
 		fmt.Printf("Unknown data type: %s\n", c.DataType)
 		return "", fmt.Errorf("unknown data type: %s", c.DataType)
 	}
 
 	// Handle special case for id column
-	if c.Name == "id" && pgDataType == "INTEGER" {
+	if c.Name == "id" && c.DataType == "integer" {
 		pgDataType = "BIGSERIAL"
 		c.NotNull = true
 	}

@@ -97,13 +97,34 @@ func TestComponentReferences(t *testing.T) {
     );`)
 }
 
-func TestDataTypeAndConstraints(t *testing.T) {
+func TestDataTypes(t *testing.T) {
+	testOpenAPISpecToSQL(t, "tests/testdata/data_types_conversion.yaml", `
+	CREATE TABLE IF NOT EXISTS data_type_examples (
+		smallInt INTEGER,
+		bigInt BIGINT,
+		booleanValue BOOLEAN,
+		floatValue REAL,
+		doubleValue DOUBLE PRECISION,
+		simpleText TEXT,
+		byteData BYTEA,
+		binaryData BYTEA,
+		fileData BYTEA,
+		dateValue DATE,
+		dateTimeValue TIMESTAMP,
+		arrayValue JSON,
+		objectValue JSON
+	);`)
+}
 
-	testOpenAPISpecToSQL(t, "tests/testdata/data_types_and_constraints.yaml", `
-	CREATE TABLE IF NOT EXISTS products (
-        price NUMERIC CHECK (price >= 0 AND price <= 100000),
-        status TEXT CHECK (status IN ('available', 'pending', 'sold')),
-		quantity INTEGER NOT NULL
+func TestConstraintsTranslation(t *testing.T) {
+	testOpenAPISpecToSQL(t, "tests/testdata/constraints.yaml", `
+    CREATE TABLE IF NOT EXISTS products (
+        productId INTEGER CHECK (productId >= 1 AND productId <= 1000),
+        productName TEXT CHECK (char_length(productName) >= 1 AND char_length(productName) <= 100),
+        productPrice NUMERIC CHECK (productPrice >= 0.01 AND productPrice <= 9999.99),
+        productCode TEXT CHECK (productCode ~ '^[A-Z0-9]{10}$'),
+        description TEXT,
+        releaseDate DATE DEFAULT 2023-01-01
     );`)
 }
 
@@ -156,4 +177,43 @@ func TestArrayOfRef(t *testing.T) {
 		id BIGSERIAL NOT NULL PRIMARY KEY,
 		name TEXT
 	);`)
+}
+
+func TestDefaultValues(t *testing.T) {
+	testOpenAPISpecToSQL(t, "tests/testdata/default_values.yaml", `
+    CREATE TABLE IF NOT EXISTS users (
+        id BIGSERIAL NOT NULL PRIMARY KEY,
+        username TEXT DEFAULT 'anonymous',
+        signup_date DATE DEFAULT 2023-01-01
+    );`)
+}
+
+func TestReadOnlyAndWriteOnlyProperties(t *testing.T) {
+	testOpenAPISpecToSQL(t, "tests/testdata/read_write_properties.yaml", `
+    CREATE TABLE IF NOT EXISTS users (
+        id BIGSERIAL NOT NULL PRIMARY KEY,
+        email TEXT,
+        createdAt TIMESTAMP
+    );`)
+}
+
+func TestUniqueConstraints(t *testing.T) {
+	testOpenAPISpecToSQL(t, "tests/testdata/unique_constraints.yaml", `
+    CREATE TABLE IF NOT EXISTS products (
+        productId TEXT,
+        serialNumber TEXT,
+        name TEXT,
+        UNIQUE(productId),
+        UNIQUE(serialNumber)
+    );`)
+}
+
+func TestEnumSupport(t *testing.T) {
+	testOpenAPISpecToSQL(t, "tests/testdata/enum_definitions.yaml", `
+    CREATE TYPE order_status AS ENUM ('pending', 'approved', 'shipped', 'cancelled');
+
+    CREATE TABLE IF NOT EXISTS orders (
+        orderId INTEGER,
+        status order_status
+    );`)
 }
