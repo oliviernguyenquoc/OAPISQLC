@@ -144,7 +144,7 @@ func getColumnDefinition(tableName string, properties orderedmap.Map[string, *hi
 			PrimaryKey:   columnName == "id",
 			NotNull:      (columnSchema.Nullable != nil && !*columnSchema.Nullable) || slices.Contains(requiredColums, columnName),
 			DefaultValue: defaultValue,
-			Constraints: Constraints{
+			MinMaxConstraints: MinMaxConstraints{
 				Minimum: columnSchema.Minimum,
 				Maximum: columnSchema.Maximum,
 			},

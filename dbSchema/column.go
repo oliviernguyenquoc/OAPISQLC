@@ -5,22 +5,22 @@ import (
 	"strings"
 )
 
-type Constraints struct {
+type MinMaxConstraints struct {
 	Minimum *float64
 	Maximum *float64
 }
 
 type Column struct {
-	Name         string
-	DataType     string
-	DataFormat   string
-	NotNull      bool
-	DefaultValue string
-	PrimaryKey   bool
-	Constraints  Constraints
-	Unique       bool
-	customType   string
-	Enum         []string
+	Name              string
+	DataType          string
+	DataFormat        string
+	NotNull           bool
+	DefaultValue      string
+	PrimaryKey        bool
+	MinMaxConstraints MinMaxConstraints
+	Unique            bool
+	customType        string
+	Enum              []string
 }
 
 var datatypeMap = map[string]string{
@@ -43,15 +43,15 @@ var datatypeMap = map[string]string{
 	"\\Model\\User:":   "TEXT",
 }
 
-func buildConstraint(name string, minimum *float64, maximum *float64) string {
+func (c Column) getConstraint() string {
 	var conditions []string
 
-	if minimum != nil {
-		conditions = append(conditions, fmt.Sprintf("%s >= %f", name, *minimum))
+	if c.MinMaxConstraints.Minimum != nil {
+		conditions = append(conditions, fmt.Sprintf("%s >= %f", c.Name, *c.MinMaxConstraints.Minimum))
 	}
 
-	if maximum != nil {
-		conditions = append(conditions, fmt.Sprintf("%s <= %f", name, *maximum))
+	if c.MinMaxConstraints.Maximum != nil {
+		conditions = append(conditions, fmt.Sprintf("%s <= %f", c.Name, *c.MinMaxConstraints.Maximum))
 	}
 
 	if len(conditions) > 0 {
@@ -101,9 +101,8 @@ func (c Column) getSQL() (string, error) {
 	}
 
 	// Handle constraints
-	constraint := buildConstraint(c.Name, c.Constraints.Minimum, c.Constraints.Maximum)
-	if constraint != "" {
-		sb.WriteString(constraint)
+	if c.MinMaxConstraints.Minimum != nil || c.MinMaxConstraints.Maximum != nil {
+		sb.WriteString(c.getConstraint())
 	}
 
 	if c.DefaultValue != "" {
