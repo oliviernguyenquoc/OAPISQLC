@@ -1,6 +1,6 @@
 # OpenAPI to PostgreSQL Schema (DDL) Library
 
-This library transforms [OpenAPI](https://github.com/OAI/OpenAPI-Specification) specifications into a PostgreSQL schema (Data Definition Language - DDL). The goal is to generate CREATE statements based on OpenAPI specifications. 
+This library transforms [OpenAPI](https://github.com/OAI/OpenAPI-Specification) schemas into a PostgreSQL schema. The goal is to generate CREATE statements based on OpenAPI specifications. 
 
 It **only takes Components/Schemas** section of OpenAPI Spec.
 
@@ -76,42 +76,6 @@ CREATE TABLE IF NOT EXISTS tags (
 );
 ```
 
-
-## Features
-
-- [X] **Schema to Table Mapping**
-  - Convert OpenAPI `components.schemas` into PostgreSQL table definitions.
-  
-- [X] **Column Definition Extraction**
-  - Map OpenAPI property types to PostgreSQL data types.
-
-- [X] **Column Constraint Support**
-  - [X] Implement `NOT NULL` for non-nullable fields.
-  - [X] Support `DEFAULT` values based on the OpenAPI specifications.
-
-- [X] **Primary Key Identification**
-  - Consider columns `id` as primary keys ("BIGSERIAL NOT NULL PRIMARY KEY")
-
-- [X] **Updated_at and Created_at handling**
-  - Associate "TIMESTAMP NOT NULL DEFAULT NOW()" for created_at and updated_at
-
-- [X] **Unique Constraints**
-  - Add unique constraints to columns specified as unique in the OpenAPI document.
-
-- [X] **Foreign Key and Relationships**
-  - Analyze and create foreign key constraints based on relationships indicated between schemas ($ref)
-
-- [X] **Complex Inheritance and Composition**
-  - Handle OpenAPI constructs like `allOf` for modeling table inheritance.
-
-- [X] **Support for Enums**
-  - Translate OpenAPI `enum` definitions into SQL check constraints or enumerated types.
-
-- [X] **Ignore schema with custom "x-database-entity" tag**
-
-All other parts of postgresql CREATE statement seems to not be included in OpenAPI specifications.
-
-
 ## Usage
 
 You can use the library either in CLI or in Go.
@@ -142,6 +106,18 @@ if err != nil {
     os.Exit(1)
 }
 ```
+
+## 🚀 Feature Highlights
+
+- 📊 Dynamic Data Type Mapping - Accurately map API properties to PostgreSQL data types (See details in [Openapi Data Type to MySQL Data Type mapping](#openapi-data-type-to-mysql-data-type-mapping) section)
+- 🔒 Handle multiple OpenAPI features:
+  - Enforce NOT NULL and support DEFAULT values directly from OpenAPI
+  - Unique values
+  - Enums
+- 🔑 Auto Primary Key Setup - Set primary keys on `id` columns.
+- ⏱️ Auto Timestamps - Set created_at and updated_at fields as DATES with automatic updates.
+- 🔗 Robust Relationship Mapping - Establish and link foreign key relationships as defined in API specs (with `allOf` constructs for sophisticated table inheritance)
+- 🚫 Custom Ignore Tag - Optionally exclude schemas with "x-database-entity" tag from database creation.
 
 ## Motivation
 
