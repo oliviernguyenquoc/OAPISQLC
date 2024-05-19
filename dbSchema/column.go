@@ -5,22 +5,29 @@ import (
 	"strings"
 )
 
-type MinMaxConstraints struct {
+type MinMaxConstraint struct {
 	Minimum *float64
 	Maximum *float64
 }
 
+type CharLengthConstaint struct {
+	MinLength *int64
+	MaxLength *int64
+}
+
 type Column struct {
-	Name              string
-	DataType          string
-	DataFormat        string
-	NotNull           bool
-	DefaultValue      string
-	PrimaryKey        bool
-	MinMaxConstraints MinMaxConstraints
-	Unique            bool
-	customType        string
-	Enum              []string
+	Name                string
+	DataType            string
+	DataFormat          string
+	NotNull             bool
+	DefaultValue        string
+	PrimaryKey          bool
+	MinMaxConstraint    MinMaxConstraint
+	CharLengthConstaint CharLengthConstaint
+	PatternConstraint   string
+	Unique              bool
+	customType          string
+	Enum                []string
 }
 
 var datatypeMap = map[string]string{
@@ -28,7 +35,7 @@ var datatypeMap = map[string]string{
 	"integer:int32":    "INTEGER",
 	"integer:int64":    "BIGINT",
 	"boolean:":         "BOOLEAN",
-	"number:":          "REAL",
+	"number:":          "NUMERIC",
 	"number:float":     "REAL",
 	"number:double":    "DOUBLE PRECISION",
 	"file:":            "BYTEA",
@@ -46,12 +53,24 @@ var datatypeMap = map[string]string{
 func (c Column) getConstraint() string {
 	var conditions []string
 
-	if c.MinMaxConstraints.Minimum != nil {
-		conditions = append(conditions, fmt.Sprintf("%s >= %f", c.Name, *c.MinMaxConstraints.Minimum))
+	if c.MinMaxConstraint.Minimum != nil {
+		conditions = append(conditions, fmt.Sprintf("%s >= %f", c.Name, *c.MinMaxConstraint.Minimum))
 	}
 
-	if c.MinMaxConstraints.Maximum != nil {
-		conditions = append(conditions, fmt.Sprintf("%s <= %f", c.Name, *c.MinMaxConstraints.Maximum))
+	if c.MinMaxConstraint.Maximum != nil {
+		conditions = append(conditions, fmt.Sprintf("%s <= %f", c.Name, *c.MinMaxConstraint.Maximum))
+	}
+
+	if c.CharLengthConstaint.MinLength != nil {
+		conditions = append(conditions, fmt.Sprintf("char_length(%s) >= %d", c.Name, *c.CharLengthConstaint.MinLength))
+	}
+
+	if c.CharLengthConstaint.MaxLength != nil {
+		conditions = append(conditions, fmt.Sprintf("char_length(%s) <= %d", c.Name, *c.CharLengthConstaint.MaxLength))
+	}
+
+	if c.PatternConstraint != "" {
+		conditions = append(conditions, fmt.Sprintf("%s ~ '%s'", c.Name, c.PatternConstraint))
 	}
 
 	if len(conditions) > 0 {
@@ -101,9 +120,7 @@ func (c Column) getSQL() (string, error) {
 	}
 
 	// Handle constraints
-	if c.MinMaxConstraints.Minimum != nil || c.MinMaxConstraints.Maximum != nil {
-		sb.WriteString(c.getConstraint())
-	}
+	sb.WriteString(c.getConstraint())
 
 	if c.DefaultValue != "" {
 		if pgDataType == "TEXT" {

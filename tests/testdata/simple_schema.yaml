@@ -12,4 +12,3 @@ components:
           format: int64
         username:
           type: string
-          maxLength: 255

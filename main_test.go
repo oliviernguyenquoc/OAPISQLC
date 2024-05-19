@@ -119,11 +119,10 @@ func TestDataTypes(t *testing.T) {
 func TestConstraintsTranslation(t *testing.T) {
 	testOpenAPISpecToSQL(t, "tests/testdata/constraints.yaml", `
     CREATE TABLE IF NOT EXISTS products (
-        productId INTEGER CHECK (productId >= 1 AND productId <= 1000),
+        productId INTEGER CHECK (productId >= 1.000000 AND productId <= 1000.000000),
         productName TEXT CHECK (char_length(productName) >= 1 AND char_length(productName) <= 100),
-        productPrice NUMERIC CHECK (productPrice >= 0.01 AND productPrice <= 9999.99),
+        productPrice NUMERIC CHECK (productPrice >= 0.010000 AND productPrice <= 9999.990000),
         productCode TEXT CHECK (productCode ~ '^[A-Z0-9]{10}$'),
-        description TEXT,
         releaseDate DATE DEFAULT 2023-01-01
     );`)
 }
@@ -205,4 +204,27 @@ func TestEnumSupport(t *testing.T) {
         orderId INTEGER,
         status order_status
     );`)
+}
+
+func TestReadmeExample(t *testing.T) {
+	testOpenAPISpecToSQL(t, "tests/testdata/readme_example.yaml", `
+	CREATE TABLE IF NOT EXISTS pets (
+        id BIGSERIAL NOT NULL PRIMARY KEY,
+        category_id INTEGER,
+        name TEXT NOT NULL,
+        photoUrls JSON NOT NULL,
+        tag_id INTEGER,
+        FOREIGN KEY (category_id) REFERENCES categories(id),
+        FOREIGN KEY (tag_id) REFERENCES tags(id)
+	);
+
+	CREATE TABLE IF NOT EXISTS categories (
+		id BIGSERIAL NOT NULL PRIMARY KEY,
+		name TEXT
+	);
+
+	CREATE TABLE IF NOT EXISTS tags (
+		id BIGSERIAL NOT NULL PRIMARY KEY,
+		name TEXT
+	);`)
 }

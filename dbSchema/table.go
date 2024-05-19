@@ -144,13 +144,18 @@ func getColumnDefinition(tableName string, properties orderedmap.Map[string, *hi
 			PrimaryKey:   columnName == "id",
 			NotNull:      (columnSchema.Nullable != nil && !*columnSchema.Nullable) || slices.Contains(requiredColums, columnName),
 			DefaultValue: defaultValue,
-			MinMaxConstraints: MinMaxConstraints{
+			MinMaxConstraint: MinMaxConstraint{
 				Minimum: columnSchema.Minimum,
 				Maximum: columnSchema.Maximum,
 			},
-			Unique:     unique,
-			customType: enumType,
-			Enum:       enum,
+			CharLengthConstaint: CharLengthConstaint{
+				MinLength: columnSchema.MinLength,
+				MaxLength: columnSchema.MaxLength,
+			},
+			PatternConstraint: columnSchema.Pattern,
+			Unique:            unique,
+			customType:        enumType,
+			Enum:              enum,
 		})
 	}
 	return columnDefinition, foreignKeys

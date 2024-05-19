@@ -55,7 +55,25 @@ components:
 
 It returns:
 ```sql
+CREATE TABLE IF NOT EXISTS pets (
+    id BIGSERIAL NOT NULL PRIMARY KEY,
+    category_id INTEGER,
+    name TEXT NOT NULL,
+    photoUrls JSON NOT NULL,
+    tag_id INTEGER,
+    FOREIGN KEY (category_id) REFERENCES categories(id),
+    FOREIGN KEY (tag_id) REFERENCES tags(id)
+);
 
+CREATE TABLE IF NOT EXISTS categories (
+    id BIGSERIAL NOT NULL PRIMARY KEY,
+    name TEXT
+);
+
+CREATE TABLE IF NOT EXISTS tags (
+    id BIGSERIAL NOT NULL PRIMARY KEY,
+    name TEXT
+);
 ```
 
 
@@ -67,9 +85,9 @@ It returns:
 - [X] **Column Definition Extraction**
   - Map OpenAPI property types to PostgreSQL data types.
 
-- [ ] **Column Constraint Support**
+- [X] **Column Constraint Support**
   - [X] Implement `NOT NULL` for non-nullable fields.
-  - [ ] Support `DEFAULT` values based on the OpenAPI specifications.
+  - [X] Support `DEFAULT` values based on the OpenAPI specifications.
 
 - [X] **Primary Key Identification**
   - Consider columns `id` as primary keys ("BIGSERIAL NOT NULL PRIMARY KEY")
@@ -77,19 +95,16 @@ It returns:
 - [X] **Updated_at and Created_at handling**
   - Associate "TIMESTAMP NOT NULL DEFAULT NOW()" for created_at and updated_at
 
-- [ ] **Unique Constraints**
+- [X] **Unique Constraints**
   - Add unique constraints to columns specified as unique in the OpenAPI document.
 
 - [X] **Foreign Key and Relationships**
   - Analyze and create foreign key constraints based on relationships indicated between schemas ($ref)
 
-- [ ] **Complex Inheritance and Composition**
+- [X] **Complex Inheritance and Composition**
   - Handle OpenAPI constructs like `allOf` for modeling table inheritance.
 
-- [ ] **Metadata Utilization**
-  - Use schema descriptions and other metadata to add comments to tables and columns in SQL.
-
-- [ ] **Support for Enums**
+- [X] **Support for Enums**
   - Translate OpenAPI `enum` definitions into SQL check constraints or enumerated types.
 
 - [X] **Ignore schema with custom "x-database-entity" tag**
@@ -142,6 +157,9 @@ Read more in this [blog post]().
 
 - Usage of `x-primary-key` and `x-autoincrement` extension (like in openalchemy)
 
+- [ ] **Metadata Utilization**
+  - Use schema descriptions and other metadata to add comments to tables and columns in SQL.
+
 - [ ] **Partitioning Support**
   - Implement table partitioning features if specified via OpenAPI extensions or conventions.
 
@@ -168,9 +186,11 @@ While OpenAPI provides powerful schema composition tools such as `anyOf` and `on
 
 | Openapi Data Type | Openapi Data Format | PostgreSQL Data Types |
 | ----------------- | ------------------- | --------------------- |
+| `integer`         |                     | `INTEGER`             |
 | `integer`         | `int32`             | `INTEGER`             |
 | `integer`         | `int64`             | `BIGINT`              |
 | `boolean`         |                     | `BOOLEAN`             |
+| `number`          |                     | `NUMERIC`             |
 | `number`          | `float`             | `REAL`                |
 | `number`          | `double`            | `DOUBLE PRECISION`    |
 | `string`          |                     | `TEXT`                |
