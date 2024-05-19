@@ -35,6 +35,21 @@ type Table struct {
 
 func (t Table) GetSQL() (string, error) {
 	var sb strings.Builder
+
+	// Add enum types
+	for _, column := range t.ColumnDefinition {
+		if len(column.Enum) > 0 {
+			sb.WriteString(fmt.Sprintf("CREATE TYPE %s AS ENUM (", inflection.Singular(t.Name)+"_"+column.Name))
+			for i, enumValue := range column.Enum {
+				sb.WriteString(fmt.Sprintf("'%s'", enumValue))
+				if i < len(column.Enum)-1 {
+					sb.WriteString(", ")
+				}
+			}
+			sb.WriteString(");\n")
+		}
+	}
+
 	sb.WriteString("CREATE TABLE IF NOT EXISTS ")
 
 	// Handle reserved words
@@ -69,7 +84,7 @@ func (t Table) GetSQL() (string, error) {
 
 }
 
-func getColumnDefinition(properties orderedmap.Map[string, *highbase.SchemaProxy], requiredColums []string) ([]Column, []string) {
+func getColumnDefinition(tableName string, properties orderedmap.Map[string, *highbase.SchemaProxy], requiredColums []string) ([]Column, []string) {
 
 	columnDefinition := []Column{}
 	foreignKeys := []string{}
@@ -107,14 +122,19 @@ func getColumnDefinition(properties orderedmap.Map[string, *highbase.SchemaProxy
 		}
 
 		// Handle possible values for the column (Constraints)
-		var enumValues []string
-		for _, node := range columnSchema.Enum {
-			enumValues = append(enumValues, node.Value)
-		}
-
 		var unique bool
 		if columnSchema.UniqueItems != nil && *columnSchema.UniqueItems {
 			unique = true
+		}
+
+		// Handle enum values
+		var enum []string
+		var enumType string
+		if columnSchema.Enum != nil {
+			for _, item := range columnSchema.Enum {
+				enum = append(enum, item.Value)
+			}
+			enumType = tableName + "_" + columnName
 		}
 
 		columnDefinition = append(columnDefinition, Column{
@@ -127,9 +147,10 @@ func getColumnDefinition(properties orderedmap.Map[string, *highbase.SchemaProxy
 			Constraints: Constraints{
 				Minimum: columnSchema.Minimum,
 				Maximum: columnSchema.Maximum,
-				Enum:    enumValues,
 			},
-			Unique: unique,
+			Unique:     unique,
+			customType: enumType,
+			Enum:       enum,
 		})
 	}
 	return columnDefinition, foreignKeys
@@ -169,12 +190,12 @@ func NewTableFromSchema(tableName string, schema *highbase.Schema) *Table {
 	if schema.AllOf != nil {
 		for _, item := range schema.AllOf {
 			requiredColums = append(requiredColums, item.Schema().Required...)
-			colDef, fk := getColumnDefinition(*item.Schema().Properties, requiredColums)
+			colDef, fk := getColumnDefinition(tableName, *item.Schema().Properties, requiredColums)
 			table.ColumnDefinition = append(table.ColumnDefinition, colDef...)
 			table.ForeignKeys = append(table.ForeignKeys, fk...)
 		}
 	} else {
-		table.ColumnDefinition, table.ForeignKeys = getColumnDefinition(*properties, requiredColums)
+		table.ColumnDefinition, table.ForeignKeys = getColumnDefinition(tableName, *properties, requiredColums)
 	}
 
 	return &table

@@ -8,7 +8,6 @@ import (
 type Constraints struct {
 	Minimum *float64
 	Maximum *float64
-	Enum    []string
 }
 
 type Column struct {
@@ -20,6 +19,8 @@ type Column struct {
 	PrimaryKey   bool
 	Constraints  Constraints
 	Unique       bool
+	customType   string
+	Enum         []string
 }
 
 var datatypeMap = map[string]string{
@@ -42,7 +43,7 @@ var datatypeMap = map[string]string{
 	"\\Model\\User:":   "TEXT",
 }
 
-func buildConstraint(name string, minimum *float64, maximum *float64, enum []string) string {
+func buildConstraint(name string, minimum *float64, maximum *float64) string {
 	var conditions []string
 
 	if minimum != nil {
@@ -51,14 +52,6 @@ func buildConstraint(name string, minimum *float64, maximum *float64, enum []str
 
 	if maximum != nil {
 		conditions = append(conditions, fmt.Sprintf("%s <= %f", name, *maximum))
-	}
-
-	if len(enum) > 0 {
-		quotedEnums := make([]string, len(enum))
-		for i, v := range enum {
-			quotedEnums[i] = fmt.Sprintf("'%s'", v)
-		}
-		conditions = append(conditions, fmt.Sprintf("%s IN (%s)", name, strings.Join(quotedEnums, ", ")))
 	}
 
 	if len(conditions) > 0 {
@@ -92,6 +85,11 @@ func (c Column) getSQL() (string, error) {
 		c.DefaultValue = "NOW()"
 	}
 
+	// Handle special case for enum
+	if c.DataType == "string" && len(c.Enum) > 0 && c.customType != "" {
+		pgDataType = c.customType
+	}
+
 	sb.WriteString(fmt.Sprintf("%s %s", c.Name, pgDataType))
 
 	if c.NotNull {
@@ -103,7 +101,7 @@ func (c Column) getSQL() (string, error) {
 	}
 
 	// Handle constraints
-	constraint := buildConstraint(c.Name, c.Constraints.Minimum, c.Constraints.Maximum, c.Constraints.Enum)
+	constraint := buildConstraint(c.Name, c.Constraints.Minimum, c.Constraints.Maximum)
 	if constraint != "" {
 		sb.WriteString(constraint)
 	}
