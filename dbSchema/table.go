@@ -7,7 +7,6 @@ import (
 
 	"github.com/jinzhu/inflection"
 	highbase "github.com/pb33f/libopenapi/datamodel/high/base"
-	"github.com/pb33f/libopenapi/orderedmap"
 )
 
 var postgresReservedWords = []string{
@@ -32,27 +31,58 @@ type Table struct {
 	ColumnDefinition    []Column
 }
 
-func (t Table) GetSQL() (string, error) {
+func GenerateEnumSQL(enumName string, values []string) (string, error) {
+	if len(values) == 0 {
+		return "", fmt.Errorf("enum '%s' must have at least one value", enumName)
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("CREATE TYPE %s AS ENUM (", enumName))
+	for i, value := range values {
+		sb.WriteString(fmt.Sprintf("'%s'", value))
+		if i < len(values)-1 {
+			sb.WriteString(", ")
+		}
+	}
+	sb.WriteString(");")
+	return sb.String(), nil
+}
+
+func (t Table) createEnumSQLStatement() (string, error) {
+	var sb strings.Builder
+
+	for _, column := range t.ColumnDefinition {
+		if len(column.Enum) > 0 {
+			enumName := fmt.Sprintf("%s_%s", inflection.Singular(t.Name), column.Name)
+			enumSQL, err := GenerateEnumSQL(enumName, column.Enum)
+			if err != nil {
+				return "", err // Handle the error appropriately, possibly accumulating errors or stopping at the first.
+			}
+			sb.WriteString(enumSQL + "\n")
+		}
+	}
+
+	return sb.String(), nil
+}
+
+func isReservedWord(word string) bool {
+	return slices.Contains(postgresReservedWords, strings.ToUpper(word))
+}
+
+func (t Table) CreateSQLStatement() (string, error) {
 	var sb strings.Builder
 
 	// Add enum types
-	for _, column := range t.ColumnDefinition {
-		if len(column.Enum) > 0 {
-			sb.WriteString(fmt.Sprintf("CREATE TYPE %s AS ENUM (", inflection.Singular(t.Name)+"_"+column.Name))
-			for i, enumValue := range column.Enum {
-				sb.WriteString(fmt.Sprintf("'%s'", enumValue))
-				if i < len(column.Enum)-1 {
-					sb.WriteString(", ")
-				}
-			}
-			sb.WriteString(");\n")
-		}
+	enumSQL, err := t.createEnumSQLStatement()
+	if err != nil {
+		return "", err
 	}
+	sb.WriteString(enumSQL + "\n")
 
 	sb.WriteString("CREATE TABLE IF NOT EXISTS ")
 
 	// Handle reserved words
-	if slices.Contains(postgresReservedWords, strings.ToUpper(t.Name)) {
+	if isReservedWord(t.Name) {
 		sb.WriteString(fmt.Sprintf("\"%s\"", t.Name))
 	} else {
 		sb.WriteString(t.Name)
@@ -61,7 +91,7 @@ func (t Table) GetSQL() (string, error) {
 	sb.WriteString(" (\n")
 
 	for i, column := range t.ColumnDefinition {
-		statement, err := column.getSQL()
+		statement, err := column.CreateSQLStatement()
 		if err != nil {
 			return "", err
 		}
@@ -78,85 +108,7 @@ func (t Table) GetSQL() (string, error) {
 
 }
 
-func getColumnDefinition(tableName string, properties orderedmap.Map[string, *highbase.SchemaProxy], requiredColums []string) []Column {
-
-	columnDefinition := []Column{}
-
-	for property := properties.First(); property != nil; property = property.Next() {
-		columnName := property.Key()
-		columnSchema := property.Value().Schema()
-
-		var dataType string
-		if len(columnSchema.Type) > 0 {
-			dataType = columnSchema.Type[0]
-		} else {
-			fmt.Printf("No data type found for property: %s\n", columnName)
-			continue
-		}
-
-		var dataFormat string
-		if len(columnSchema.Format) > 0 {
-			dataFormat = columnSchema.Format
-		}
-
-		// Detect if the property is a $ref to another schema
-		ref := property.Value().GetReference()
-		var foreignKey string
-
-		if ref != "" || (dataType == "array" && columnSchema.Items != nil && columnSchema.Items.A.Schema().Properties != nil) {
-			foreignKey = inflection.Plural(columnName)
-			columnName = inflection.Singular(columnName) + "_id"
-			dataType = "integer"
-		}
-
-		// Handle default value
-		defaultValue := ""
-		if columnSchema.Default != nil {
-			defaultValue = columnSchema.Default.Value
-		}
-
-		// Handle possible values for the column (Constraints)
-		var unique bool
-		if columnSchema.UniqueItems != nil && *columnSchema.UniqueItems {
-			unique = true
-		}
-
-		// Handle enum values
-		var enum []string
-		var enumType string
-		if columnSchema.Enum != nil {
-			for _, item := range columnSchema.Enum {
-				enum = append(enum, item.Value)
-			}
-			enumType = tableName + "_" + columnName
-		}
-
-		columnDefinition = append(columnDefinition, Column{
-			Name:         columnName,
-			DataType:     dataType,
-			DataFormat:   dataFormat,
-			PrimaryKey:   columnName == "id",
-			NotNull:      (columnSchema.Nullable != nil && !*columnSchema.Nullable) || slices.Contains(requiredColums, columnName),
-			DefaultValue: defaultValue,
-			MinMaxConstraint: MinMaxConstraint{
-				Minimum: columnSchema.Minimum,
-				Maximum: columnSchema.Maximum,
-			},
-			CharLengthConstaint: CharLengthConstaint{
-				MinLength: columnSchema.MinLength,
-				MaxLength: columnSchema.MaxLength,
-			},
-			PatternConstraint: columnSchema.Pattern,
-			Unique:            unique,
-			customType:        enumType,
-			Enum:              enum,
-			ForeignKey:        foreignKey,
-		})
-	}
-	return columnDefinition
-}
-
-func ToSnakeCase(s string) string {
+func toSnakeCase(s string) string {
 	var result string
 
 	for i, v := range s {
@@ -170,9 +122,9 @@ func ToSnakeCase(s string) string {
 	return strings.ToLower(result)
 }
 
-func NewTableFromSchema(tableName string, schema *highbase.Schema) *Table {
+func BuildTableFromSchema(tableName string, schema *highbase.Schema) *Table {
 	table := Table{
-		Name: inflection.Plural(ToSnakeCase(tableName)),
+		Name: inflection.Plural(toSnakeCase(tableName)),
 	}
 
 	properties := schema.Properties
@@ -188,17 +140,27 @@ func NewTableFromSchema(tableName string, schema *highbase.Schema) *Table {
 		}
 	}
 
-	requiredColums := schema.Required
+	requiredColumns := schema.Required
 
 	// Check if there is allOf in the schema
 	if schema.AllOf != nil {
 		for _, item := range schema.AllOf {
-			requiredColums = append(requiredColums, item.Schema().Required...)
-			colDef := getColumnDefinition(tableName, *item.Schema().Properties, requiredColums)
+			requiredColumns = append(requiredColumns, item.Schema().Required...)
+			colDef, err := BuildColumnsFromSchema(tableName, *item.Schema().Properties, requiredColumns)
+			if err != nil {
+				fmt.Printf("Error building columns from schema: %v\n", err)
+				return &table
+			}
+
 			table.ColumnDefinition = append(table.ColumnDefinition, colDef...)
 		}
 	} else {
-		table.ColumnDefinition = getColumnDefinition(tableName, *properties, requiredColums)
+		colDef, err := BuildColumnsFromSchema(tableName, *properties, requiredColumns)
+		if err != nil {
+			fmt.Printf("Error building columns from schema: %v\n", err)
+			return &table
+		}
+		table.ColumnDefinition = colDef
 	}
 
 	return &table

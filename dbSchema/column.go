@@ -2,33 +2,48 @@ package dbSchema
 
 import (
 	"fmt"
+	"slices"
 	"strings"
+
+	"github.com/jinzhu/inflection"
+	highbase "github.com/pb33f/libopenapi/datamodel/high/base"
+	"github.com/pb33f/libopenapi/orderedmap"
+	"golang.org/x/exp/slog"
 )
+
+// Constraint interface to illustrate the concept of column constraints
+type Constraint interface {
+	GetConstraint(columnName string) []string
+}
 
 type MinMaxConstraint struct {
 	Minimum *float64
 	Maximum *float64
 }
 
-type CharLengthConstaint struct {
+type CharLengthConstraint struct {
 	MinLength *int64
 	MaxLength *int64
 }
 
+type PatternConstraint struct {
+	Pattern string
+}
+
 type Column struct {
-	Name                string
-	DataType            string
-	DataFormat          string
-	NotNull             bool
-	DefaultValue        string
-	PrimaryKey          bool
-	MinMaxConstraint    MinMaxConstraint
-	CharLengthConstaint CharLengthConstaint
-	PatternConstraint   string
-	Unique              bool
-	customType          string
-	Enum                []string
-	ForeignKey          string
+	Name                 string
+	DataType             string
+	DataFormat           string
+	NotNull              bool
+	DefaultValue         string
+	PrimaryKey           bool
+	MinMaxConstraint     MinMaxConstraint
+	CharLengthConstraint CharLengthConstraint
+	PatternConstraint    PatternConstraint
+	Unique               bool
+	customType           string
+	Enum                 []string
+	ForeignKey           string
 }
 
 var datatypeMap = map[string]string{
@@ -51,27 +66,47 @@ var datatypeMap = map[string]string{
 	"\\Model\\User:":   "TEXT",
 }
 
-func (c Column) getConstraint() string {
-	var conditions []string
+func (mm MinMaxConstraint) GetConstraint(columnName string) []string {
+	conditions := make([]string, 0, 2)
 
-	if c.MinMaxConstraint.Minimum != nil {
-		conditions = append(conditions, fmt.Sprintf("%s >= %f", c.Name, *c.MinMaxConstraint.Minimum))
+	if mm.Minimum != nil {
+		conditions = append(conditions, fmt.Sprintf("%s >= %f", columnName, *mm.Minimum))
 	}
 
-	if c.MinMaxConstraint.Maximum != nil {
-		conditions = append(conditions, fmt.Sprintf("%s <= %f", c.Name, *c.MinMaxConstraint.Maximum))
+	if mm.Maximum != nil {
+		conditions = append(conditions, fmt.Sprintf("%s <= %f", columnName, *mm.Maximum))
 	}
 
-	if c.CharLengthConstaint.MinLength != nil {
-		conditions = append(conditions, fmt.Sprintf("char_length(%s) >= %d", c.Name, *c.CharLengthConstaint.MinLength))
+	return conditions
+}
+
+func (cl CharLengthConstraint) GetConstraint(columnName string) []string {
+	conditions := make([]string, 0, 2)
+
+	if cl.MinLength != nil {
+		conditions = append(conditions, fmt.Sprintf("char_length(%s) >= %d", columnName, *cl.MinLength))
 	}
 
-	if c.CharLengthConstaint.MaxLength != nil {
-		conditions = append(conditions, fmt.Sprintf("char_length(%s) <= %d", c.Name, *c.CharLengthConstaint.MaxLength))
+	if cl.MaxLength != nil {
+		conditions = append(conditions, fmt.Sprintf("char_length(%s) <= %d", columnName, *cl.MaxLength))
 	}
 
-	if c.PatternConstraint != "" {
-		conditions = append(conditions, fmt.Sprintf("%s ~ '%s'", c.Name, c.PatternConstraint))
+	return conditions
+}
+
+func (pc PatternConstraint) GetConstraint(columnName string) []string {
+	if pc.Pattern != "" {
+		return []string{fmt.Sprintf("%s ~ '%s'", columnName, pc.Pattern)}
+	}
+	return []string{}
+}
+
+func (c Column) GetConstraint() string {
+	conditions := make([]string, 0, 5) // Pre-allocate with expected capacity
+
+	constraints := []Constraint{c.MinMaxConstraint, c.CharLengthConstraint, c.PatternConstraint}
+	for _, constraint := range constraints {
+		conditions = append(conditions, constraint.GetConstraint(c.Name)...)
 	}
 
 	if len(conditions) > 0 {
@@ -80,7 +115,7 @@ func (c Column) getConstraint() string {
 	return ""
 }
 
-func (c Column) getSQL() (string, error) {
+func (c Column) CreateSQLStatement() (string, error) {
 	var sb strings.Builder
 
 	var pgDataType string
@@ -121,7 +156,7 @@ func (c Column) getSQL() (string, error) {
 	}
 
 	// Handle constraints
-	sb.WriteString(c.getConstraint())
+	sb.WriteString(c.GetConstraint())
 
 	if c.DefaultValue != "" {
 		if pgDataType == "TEXT" {
@@ -140,4 +175,94 @@ func (c Column) getSQL() (string, error) {
 	}
 
 	return sb.String(), nil
+}
+
+func buildColumnFromProperty(tableName string, property orderedmap.Pair[string, *highbase.SchemaProxy], requiredColumns []string) (Column, error) {
+	columnName := property.Key()
+	columnSchema := property.Value().Schema()
+
+	var dataType string
+	if len(columnSchema.Type) > 0 {
+		dataType = columnSchema.Type[0]
+	} else {
+		return Column{}, fmt.Errorf("no data type found for property: %s", columnName)
+	}
+
+	var dataFormat string
+	if len(columnSchema.Format) > 0 {
+		dataFormat = columnSchema.Format
+	}
+
+	// Detect if the property is a $ref to another schema
+	// This is used to determine if the column is a foreign key
+	ref := property.Value().GetReference()
+	var foreignKey string
+
+	if ref != "" || (dataType == "array" && columnSchema.Items != nil && columnSchema.Items.A.Schema().Properties != nil) {
+		foreignKey = inflection.Plural(columnName)
+		columnName = inflection.Singular(columnName) + "_id"
+		dataType = "integer"
+	}
+
+	// Handle default value
+	defaultValue := ""
+	if columnSchema.Default != nil {
+		defaultValue = columnSchema.Default.Value
+	}
+
+	// Handle possible values for the column (Constraints)
+	var unique bool
+	if columnSchema.UniqueItems != nil && *columnSchema.UniqueItems {
+		unique = true
+	}
+
+	// Handle enum values
+	var enum []string
+	var enumType string
+	if columnSchema.Enum != nil {
+		for _, item := range columnSchema.Enum {
+			enum = append(enum, item.Value)
+		}
+		enumType = tableName + "_" + columnName
+	}
+
+	return Column{
+		Name:         columnName,
+		DataType:     dataType,
+		DataFormat:   dataFormat,
+		PrimaryKey:   columnName == "id",
+		NotNull:      (columnSchema.Nullable != nil && !*columnSchema.Nullable) || slices.Contains(requiredColumns, columnName),
+		DefaultValue: defaultValue,
+		MinMaxConstraint: MinMaxConstraint{
+			Minimum: columnSchema.Minimum,
+			Maximum: columnSchema.Maximum,
+		},
+		CharLengthConstraint: CharLengthConstraint{
+			MinLength: columnSchema.MinLength,
+			MaxLength: columnSchema.MaxLength,
+		},
+		PatternConstraint: PatternConstraint{
+			Pattern: columnSchema.Pattern,
+		},
+		Unique:     unique,
+		customType: enumType,
+		Enum:       enum,
+		ForeignKey: foreignKey,
+	}, nil
+}
+
+func BuildColumnsFromSchema(tableName string, properties orderedmap.Map[string, *highbase.SchemaProxy], requiredColumns []string) ([]Column, error) {
+
+	var columns []Column
+
+	for property := properties.First(); property != nil; property = property.Next() {
+		column, err := buildColumnFromProperty(tableName, property, requiredColumns)
+		if err != nil {
+			slog.Error("error building column for %s: %v", property.Key(), err)
+			return nil, fmt.Errorf("could not build column for %s", property.Key())
+
+		}
+		columns = append(columns, column)
+	}
+	return columns, nil
 }

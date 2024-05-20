@@ -62,7 +62,7 @@ func fromComponentsToSQL(doc *v3.Components) (string, error) {
 
 	for schema := schemas.First(); schema != nil; schema = schema.Next() {
 		tableName := schema.Key()
-		table := dbSchema.NewTableFromSchema(tableName, schema.Value().Schema())
+		table := dbSchema.BuildTableFromSchema(tableName, schema.Value().Schema())
 
 		// If there is no column, no need to create a table
 		if len(table.ColumnDefinition) != 0 {
@@ -73,7 +73,7 @@ func fromComponentsToSQL(doc *v3.Components) (string, error) {
 	var query string
 
 	for _, table := range tableDefinitions {
-		statement, err := table.GetSQL()
+		statement, err := table.CreateSQLStatement()
 		if err != nil {
 			return "", err
 		}
