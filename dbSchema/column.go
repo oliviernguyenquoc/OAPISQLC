@@ -28,6 +28,7 @@ type Column struct {
 	Unique              bool
 	customType          string
 	Enum                []string
+	ForeignKey          string
 }
 
 var datatypeMap = map[string]string{
@@ -132,6 +133,10 @@ func (c Column) getSQL() (string, error) {
 
 	if c.Unique {
 		sb.WriteString(" UNIQUE")
+	}
+
+	if c.ForeignKey != "" {
+		sb.WriteString(fmt.Sprintf(" REFERENCES %s(id)", c.ForeignKey))
 	}
 
 	return sb.String(), nil

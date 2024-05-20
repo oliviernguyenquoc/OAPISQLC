@@ -81,16 +81,11 @@ func fromComponentsToSQL(doc *v3.Components) (string, error) {
 		query += statement
 	}
 
-	slog.Debug(query)
-
 	normalizedQuery, err := pg_query.Normalize(query)
 	if err != nil {
 		slog.Error("Error checking and normalizing query %s", query, err)
 		return "", err
 	}
-
-	slog.Debug("-------------")
-	slog.Debug(normalizedQuery)
 
 	// Placeholder SQL generation logic
 	return normalizedQuery, nil

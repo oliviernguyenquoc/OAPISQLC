@@ -30,7 +30,6 @@ type Table struct {
 	DefaultDatabaseName string
 	Name                string
 	ColumnDefinition    []Column
-	ForeignKeys         []string
 }
 
 func (t Table) GetSQL() (string, error) {
@@ -73,21 +72,15 @@ func (t Table) GetSQL() (string, error) {
 		}
 	}
 
-	// Add foreign keys
-	for _, fk := range t.ForeignKeys {
-		sb.WriteString(fmt.Sprintf(",\n    FOREIGN KEY (%s_id) REFERENCES %s(id)", inflection.Singular(fk), inflection.Plural(fk)))
-	}
-
 	sb.WriteString("\n);")
 
 	return sb.String(), nil
 
 }
 
-func getColumnDefinition(tableName string, properties orderedmap.Map[string, *highbase.SchemaProxy], requiredColums []string) ([]Column, []string) {
+func getColumnDefinition(tableName string, properties orderedmap.Map[string, *highbase.SchemaProxy], requiredColums []string) []Column {
 
 	columnDefinition := []Column{}
-	foreignKeys := []string{}
 
 	for property := properties.First(); property != nil; property = property.Next() {
 		columnName := property.Key()
@@ -108,9 +101,10 @@ func getColumnDefinition(tableName string, properties orderedmap.Map[string, *hi
 
 		// Detect if the property is a $ref to another schema
 		ref := property.Value().GetReference()
+		var foreignKey string
 
 		if ref != "" || (dataType == "array" && columnSchema.Items != nil && columnSchema.Items.A.Schema().Properties != nil) {
-			foreignKeys = append(foreignKeys, columnName)
+			foreignKey = inflection.Plural(columnName)
 			columnName = inflection.Singular(columnName) + "_id"
 			dataType = "integer"
 		}
@@ -156,9 +150,10 @@ func getColumnDefinition(tableName string, properties orderedmap.Map[string, *hi
 			Unique:            unique,
 			customType:        enumType,
 			Enum:              enum,
+			ForeignKey:        foreignKey,
 		})
 	}
-	return columnDefinition, foreignKeys
+	return columnDefinition
 }
 
 func ToSnakeCase(s string) string {
@@ -181,7 +176,7 @@ func NewTableFromSchema(tableName string, schema *highbase.Schema) *Table {
 	}
 
 	properties := schema.Properties
-	if properties == nil {
+	if properties == nil && schema.AllOf == nil {
 		fmt.Printf("No properties found for schema: %s\n", tableName)
 		return &table
 	}
@@ -199,12 +194,11 @@ func NewTableFromSchema(tableName string, schema *highbase.Schema) *Table {
 	if schema.AllOf != nil {
 		for _, item := range schema.AllOf {
 			requiredColums = append(requiredColums, item.Schema().Required...)
-			colDef, fk := getColumnDefinition(tableName, *item.Schema().Properties, requiredColums)
+			colDef := getColumnDefinition(tableName, *item.Schema().Properties, requiredColums)
 			table.ColumnDefinition = append(table.ColumnDefinition, colDef...)
-			table.ForeignKeys = append(table.ForeignKeys, fk...)
 		}
 	} else {
-		table.ColumnDefinition, table.ForeignKeys = getColumnDefinition(tableName, *properties, requiredColums)
+		table.ColumnDefinition = getColumnDefinition(tableName, *properties, requiredColums)
 	}
 
 	return &table

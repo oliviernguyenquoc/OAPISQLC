@@ -87,8 +87,7 @@ func TestComponentReferences(t *testing.T) {
 	testOpenAPISpecToSQL(t, "tests/testdata/component_references.yaml", `
 	CREATE TABLE IF NOT EXISTS users (
         id BIGSERIAL NOT NULL PRIMARY KEY,
-        address_id INTEGER,
-		FOREIGN KEY (address_id) REFERENCES addresses(id)
+        address_id INTEGER REFERENCES addresses(id)
     );
     CREATE TABLE IF NOT EXISTS addresses (
         id BIGSERIAL NOT NULL PRIMARY KEY,
@@ -168,8 +167,7 @@ func TestArrayOfRef(t *testing.T) {
 	CREATE TABLE IF NOT EXISTS pets (
 		id BIGSERIAL NOT NULL PRIMARY KEY,
 		name TEXT NOT NULL,
-		tag_id INTEGER,
-		FOREIGN KEY (tag_id) REFERENCES tags(id)
+		tag_id INTEGER REFERENCES tags(id)
 	);
 
 	CREATE TABLE IF NOT EXISTS tags (
@@ -210,12 +208,10 @@ func TestReadmeExample(t *testing.T) {
 	testOpenAPISpecToSQL(t, "tests/testdata/readme_example.yaml", `
 	CREATE TABLE IF NOT EXISTS pets (
         id BIGSERIAL NOT NULL PRIMARY KEY,
-        category_id INTEGER,
+        category_id INTEGER REFERENCES categories(id),
         name TEXT NOT NULL,
         photoUrls JSON NOT NULL,
-        tag_id INTEGER,
-        FOREIGN KEY (category_id) REFERENCES categories(id),
-        FOREIGN KEY (tag_id) REFERENCES tags(id)
+        tag_id INTEGER REFERENCES tags(id)
 	);
 
 	CREATE TABLE IF NOT EXISTS categories (
