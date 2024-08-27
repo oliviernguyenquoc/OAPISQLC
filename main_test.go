@@ -31,15 +31,11 @@ func compareSQL(t *testing.T, expectedSQL, actualSQL string) {
 	}
 }
 
-func testOpenAPISpecToSQL(t *testing.T, filename, expectedSQL string, deleteStatements bool) {
+func testOpenAPISpecToSQL(t *testing.T, filename, expectedSQL string, flags Flags) {
 
 	apiSpec, err := os.ReadFile(filename)
 	if err != nil {
 		t.Errorf("Error reading OpenAPI spec: %v", err)
-	}
-
-	flags := Flags{
-		deleteStatements: deleteStatements,
 	}
 
 	sql, err := OpenAPISpecToSQL(apiSpec, flags)
@@ -74,20 +70,20 @@ func TestSimpleSchemaTransformation(t *testing.T) {
 	CREATE TABLE IF NOT EXISTS users (
 		id BIGSERIAL NOT NULL PRIMARY KEY,
 		username TEXT
-	);`, false)
+	);`, Flags{})
 }
 
 func TestTagManagement(t *testing.T) {
 	testOpenAPISpecToSQL(t, "tests/testdata/tag_management.yaml", `
 	CREATE TABLE IF NOT EXISTS pets (
 		name TEXT
-	);`, false)
+	);`, Flags{})
 }
 
 func TestCustomExtensions(t *testing.T) {
 
 	// No table should be created for ignored schemas.
-	testOpenAPISpecToSQL(t, "tests/testdata/exclusion_extension.yaml", "", false)
+	testOpenAPISpecToSQL(t, "tests/testdata/exclusion_extension.yaml", "", Flags{})
 }
 
 func TestComponentReferences(t *testing.T) {
@@ -101,7 +97,7 @@ func TestComponentReferences(t *testing.T) {
         id BIGSERIAL NOT NULL PRIMARY KEY,
         street TEXT,
         city TEXT
-    );`, false)
+    );`, Flags{})
 }
 
 func TestComponentReferencesWithDeleteStatements(t *testing.T) {
@@ -118,7 +114,7 @@ func TestComponentReferencesWithDeleteStatements(t *testing.T) {
         id BIGSERIAL NOT NULL PRIMARY KEY,
         street TEXT,
         city TEXT
-    );`, true)
+    );`, Flags{deleteStatements: true})
 }
 
 func TestDataTypes(t *testing.T) {
@@ -137,7 +133,7 @@ func TestDataTypes(t *testing.T) {
 		dateTimeValue TIMESTAMP,
 		arrayValue JSON,
 		objectValue JSON
-	);`, false)
+	);`, Flags{})
 }
 
 func TestConstraintsTranslation(t *testing.T) {
@@ -148,7 +144,7 @@ func TestConstraintsTranslation(t *testing.T) {
         productPrice NUMERIC CHECK (productPrice >= 0.010000 AND productPrice <= 9999.990000),
         productCode TEXT CHECK (productCode ~ '^[A-Z0-9]{10}$'),
         releaseDate DATE DEFAULT 2023-01-01
-    );`, false)
+    );`, Flags{})
 }
 
 func TestCircularReferencesParsingError(t *testing.T) {
@@ -160,7 +156,7 @@ func TestCircularReferencesParsingError(t *testing.T) {
 func TestCircularReferences(t *testing.T) {
 
 	// No table should be created if the references are circular and cannot be resolved.
-	testOpenAPISpecToSQL(t, "tests/testdata/circular_references.yaml", "", false)
+	testOpenAPISpecToSQL(t, "tests/testdata/circular_references.yaml", "", Flags{})
 }
 
 func TestAllOfSchema(t *testing.T) {
@@ -174,7 +170,7 @@ func TestAllOfSchema(t *testing.T) {
         type TEXT  NOT NULL,
         breed TEXT  NOT NULL,
         barkVolume INTEGER
-    );`, false)
+    );`, Flags{})
 }
 
 func TestIdCreatedAtUpdatedAt(t *testing.T) {
@@ -184,7 +180,7 @@ func TestIdCreatedAtUpdatedAt(t *testing.T) {
 		created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 		updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 		username TEXT
-	);`, false)
+	);`, Flags{})
 }
 
 func TestArrayOfRef(t *testing.T) {
@@ -198,7 +194,7 @@ func TestArrayOfRef(t *testing.T) {
 	CREATE TABLE IF NOT EXISTS tags (
 		id BIGSERIAL NOT NULL PRIMARY KEY,
 		name TEXT
-	);`, false)
+	);`, Flags{})
 }
 
 func TestDefaultValues(t *testing.T) {
@@ -207,7 +203,7 @@ func TestDefaultValues(t *testing.T) {
         id BIGSERIAL NOT NULL PRIMARY KEY,
         username TEXT DEFAULT 'anonymous',
         signup_date DATE DEFAULT 2023-01-01
-    );`, false)
+    );`, Flags{})
 }
 
 func TestUniqueConstraints(t *testing.T) {
@@ -216,7 +212,7 @@ func TestUniqueConstraints(t *testing.T) {
         productId TEXT UNIQUE,
         serialNumber TEXT UNIQUE,
         name TEXT
-    );`, false)
+    );`, Flags{})
 }
 
 func TestEnumSupport(t *testing.T) {
@@ -226,7 +222,7 @@ func TestEnumSupport(t *testing.T) {
     CREATE TABLE IF NOT EXISTS orders (
         orderId INTEGER,
         status order_status
-    );`, false)
+    );`, Flags{})
 }
 
 func TestReadmeExample(t *testing.T) {
@@ -247,5 +243,25 @@ func TestReadmeExample(t *testing.T) {
 	CREATE TABLE IF NOT EXISTS tags (
 		id BIGSERIAL NOT NULL PRIMARY KEY,
 		name TEXT
-	);`, false)
+	);`, Flags{})
+}
+
+func TestWriteInFolder(t *testing.T) {
+	writeInFolder("test", Flags{outputFolderPath: "tests/output"})
+
+	// Check if the folder / file was created
+	_, err := os.ReadFile("tests/output/schemas.sql")
+	if err != nil {
+		t.Errorf("Failed to write SQL to file: %v", err)
+	}
+
+	// Clean up
+	err = os.Remove("tests/output/schemas.sql")
+	if err != nil {
+		t.Errorf("Failed to remove file: %v", err)
+	}
+	err = os.Remove("tests/output")
+	if err != nil {
+		t.Errorf("Failed to remove folder: %v", err)
+	}
 }

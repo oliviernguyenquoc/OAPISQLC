@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/oliviernguyenquoc/oas2pgschema/dbSchema"
@@ -119,10 +120,28 @@ func OpenAPISpecToSQL(openAPISpec []byte, flags Flags) (string, error) {
 	return sqlStatement, nil
 }
 
+func writeInFolder(sqlStatement string, flags Flags) error {
+	// Create folder if not exist
+	err := os.MkdirAll(flags.outputFolderPath, 0755)
+	if err != nil {
+		fmt.Printf("Failed to create output folder: %v\n", err)
+		return err
+	}
+
+	err = os.WriteFile(filepath.Join(flags.outputFolderPath, "schemas.sql"), []byte(sqlStatement), 0644)
+	if err != nil {
+		fmt.Printf("Failed to write SQL to file: %v\n", err)
+		return err
+	}
+	fmt.Printf("SQL written in folder %s\n", flags.outputFolderPath)
+
+	return nil
+}
+
 // flags
 type Flags struct {
 	deleteStatements bool
-	outputFilePath   string
+	outputFolderPath string
 }
 
 func main() {
@@ -134,12 +153,12 @@ func main() {
 	filePath := os.Args[1]
 
 	// Parse flags
-	deleteStatements := flag.Bool("deleteStatements", true, "Add delete statements to SQL output")
-	outputFilePath := flag.String("o", "", "Path to output file")
+	deleteStatements := flag.Bool("deleteStatements", false, "Add delete statements to SQL output")
+	outputFolderPath := flag.String("outputFolder", "", "Path to output folder")
 
 	flags := Flags{
 		deleteStatements: *deleteStatements,
-		outputFilePath:   *outputFilePath,
+		outputFolderPath: *outputFolderPath,
 	}
 
 	// load an OpenAPI 3.1 specification from bytes
@@ -155,13 +174,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if flags.outputFilePath != "" {
-		err = os.WriteFile(flags.outputFilePath, []byte(sqlStatement), 0644)
+	if flags.outputFolderPath != "" {
+		err := writeInFolder(sqlStatement, flags)
 		if err != nil {
-			fmt.Printf("Failed to write SQL to file: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("SQL written to %s\n", flags.outputFilePath)
 	} else {
 		fmt.Println("Generated SQL Statement:", sqlStatement)
 	}
