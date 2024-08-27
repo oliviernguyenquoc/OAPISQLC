@@ -122,6 +122,7 @@ func OpenAPISpecToSQL(openAPISpec []byte, flags Flags) (string, error) {
 // flags
 type Flags struct {
 	deleteStatements bool
+	outputFilePath   string
 }
 
 func main() {
@@ -134,9 +135,11 @@ func main() {
 
 	// Parse flags
 	deleteStatements := flag.Bool("deleteStatements", true, "Add delete statements to SQL output")
+	outputFilePath := flag.String("o", "", "Path to output file")
 
 	flags := Flags{
 		deleteStatements: *deleteStatements,
+		outputFilePath:   *outputFilePath,
 	}
 
 	// load an OpenAPI 3.1 specification from bytes
@@ -152,6 +155,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println("Generated SQL Statement:", sqlStatement)
-
+	if flags.outputFilePath != "" {
+		err = os.WriteFile(flags.outputFilePath, []byte(sqlStatement), 0644)
+		if err != nil {
+			fmt.Printf("Failed to write SQL to file: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("SQL written to %s\n", flags.outputFilePath)
+	} else {
+		fmt.Println("Generated SQL Statement:", sqlStatement)
+	}
 }
