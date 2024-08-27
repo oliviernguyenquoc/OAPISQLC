@@ -1,4 +1,6 @@
-# OpenAPI to PostgreSQL Schema (DDL) Library
+# OA-SQLC: OpenAPI to PostgreSQL Schema (DDL) Library
+
+![logo](./logo.svg)
 
 This library transforms [OpenAPI](https://github.com/OAI/OpenAPI-Specification) schemas into a PostgreSQL schema. The goal is to generate CREATE statements based on OpenAPI specifications. 
 
@@ -123,11 +125,13 @@ if err != nil {
 
 This library allows you to kickstart your API development by auto-generating DDL scripts. 
 
+![image](./schema.png)
+
 By combining it with [SQLC](https://sqlc.dev/), you can generate the foundation of your API.
 
 Moreover, you can easily have a full automatic testing software by combining contract-testing with [Microcks](https://microcks.io) and [TestContainers](https://golang.testcontainers.org/).
 
-Read more in this [blog post]().
+Read more in this blog post (soon).
 
 ## Future possible features:
 
