@@ -5,10 +5,11 @@ import (
 	"slices"
 	"strings"
 
+	"log/slog"
+
 	"github.com/jinzhu/inflection"
 	highbase "github.com/pb33f/libopenapi/datamodel/high/base"
 	"github.com/pb33f/libopenapi/orderedmap"
-	"golang.org/x/exp/slog"
 )
 
 // Constraint interface to illustrate the concept of column constraints

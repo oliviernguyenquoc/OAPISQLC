@@ -16,7 +16,7 @@ import (
 
 // parseOpenAPISpec takes the path to an OpenAPI YAML file, parses it using the libopenapi library,
 // and returns the parsed data structure or an error if something goes wrong.
-func parseOpenAPISpec(openAPISpec []byte) (*v3.Components, error) {
+func parseOpenAPISpec(openAPISpec []byte) (*v3.Document, error) {
 
 	// create a new document from specification bytes
 	document, err := libopenapi.NewDocument(openAPISpec)
@@ -52,7 +52,7 @@ func parseOpenAPISpec(openAPISpec []byte) (*v3.Components, error) {
 	// Print the number of paths and schemas in the document
 	slog.Info("There are %s paths and %d schemas in the document", strconv.Itoa(nbPaths), nbSchemas)
 
-	return v3Model.Model.Components, nil
+	return &v3Model.Model, nil
 }
 
 // fromComponentsToSQL takes a parsed OpenAPI document and generates a SQL statement.
@@ -101,23 +101,42 @@ func fromComponentsToSQL(doc *v3.Components, flags Flags) (string, error) {
 	return normalizedQuery, nil
 }
 
-func OpenAPISpecToSQL(openAPISpec []byte, flags Flags) (string, error) {
+func fromComponentPathToSQL(doc *v3.Paths, flags Flags) ([]string, error) {
+	paths := doc.PathItems
 
-	// Parse the OpenAPI specification
-	doc, err := parseOpenAPISpec(openAPISpec)
-	if err != nil {
-		fmt.Printf("Failed to parse OpenAPI spec: %v\n", err)
-		return "", err
+	var pathSQLStatements []string
+
+	for path := paths.First(); path != nil; path = path.Next() {
+		pathItem := path.Value()
+
+		if pathItem.Get != nil {
+			operation := pathItem.Get
+
+			var operationSQLStatement string
+			var isMany = false
+
+			// Check if response is an array based on the schema type
+			if operation.Responses != nil && operation.Responses.Codes != nil && operation.Responses.Codes.Value("200") != nil {
+				response := operation.Responses.Codes.Value("200")
+				if response.Content != nil && response.Content.Value("application/json") != nil && response.Content.Value("application/json").Schema != nil {
+					schema := response.Content.Value("application/json").Schema.Schema()
+					if schema.Type != nil && schema.Type[0] == "array" {
+						isMany = true
+					}
+				}
+			}
+
+			if isMany {
+				operationSQLStatement = fmt.Sprintf("-- name: %s :many \n", operation.OperationId)
+			} else {
+				operationSQLStatement = fmt.Sprintf("-- name: %s :one \n", operation.OperationId)
+			}
+			operationSQLStatement += fmt.Sprintf("SELECT * FROM %s", operation.OperationId)
+			operationSQLStatement += "\n\n"
+		}
 	}
 
-	// Generate SQL statement based on the OpenAPI spec
-	sqlStatement, err := fromComponentsToSQL(doc, flags)
-	if err != nil {
-		fmt.Printf("Failed to generate SQL: %v\n", err)
-		return "", err
-	}
-
-	return sqlStatement, nil
+	return pathSQLStatements, nil
 }
 
 func writeInFolder(sqlStatement string, flags Flags) error {
@@ -168,18 +187,34 @@ func main() {
 		os.Exit(1)
 	}
 
-	sqlStatement, err := OpenAPISpecToSQL(openAPISpec, flags)
+	// Parse the OpenAPI specification
+	doc, err := parseOpenAPISpec(openAPISpec)
 	if err != nil {
-		fmt.Printf("Failed to transform OpenAPI spec to SQL: %v\n", err)
+		fmt.Printf("Failed to parse OpenAPI spec: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Generate SQL statement based on the OpenAPI spec
+	DDLSQLStatement, err := fromComponentsToSQL(doc.Components, flags)
+	if err != nil {
+		fmt.Printf("Failed to generate SQL: %v\n", err)
+		os.Exit(1)
+	}
+
+	PathSQLStatements, err := fromComponentPathToSQL(doc.Paths, flags)
+	if err != nil {
+		fmt.Printf("Failed to generate SQL: %v\n", err)
 		os.Exit(1)
 	}
 
 	if flags.outputFolderPath != "" {
-		err := writeInFolder(sqlStatement, flags)
+		err := writeInFolder(DDLSQLStatement, flags)
 		if err != nil {
 			os.Exit(1)
 		}
 	} else {
-		fmt.Println("Generated SQL Statement:", sqlStatement)
+		fmt.Println("Generated SQL Statement:", DDLSQLStatement)
+		fmt.Print("\n\n")
+		fmt.Println("Generated Path SQL Statements:", PathSQLStatements)
 	}
 }

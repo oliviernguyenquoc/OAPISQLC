@@ -38,7 +38,13 @@ func testOpenAPISpecToSQL(t *testing.T, filename, expectedSQL string, flags Flag
 		t.Errorf("Error reading OpenAPI spec: %v", err)
 	}
 
-	sql, err := OpenAPISpecToSQL(apiSpec, flags)
+	// Parse the OpenAPI specification
+	doc, err := parseOpenAPISpec(apiSpec)
+	if err != nil {
+		t.Errorf("Error parsing OpenAPI spec: %v", err)
+	}
+
+	sql, err := fromComponentsToSQL(doc.Components, flags)
 	if err != nil {
 		t.Errorf("Error transforming OpenAPI to SQL: %v", err)
 	}
@@ -51,11 +57,8 @@ func testErrors(t *testing.T, filename string) {
 		t.Errorf("Error reading OpenAPI spec: %v", err)
 	}
 
-	flags := Flags{
-		deleteStatements: false,
-	}
-
-	_, errParsing := OpenAPISpecToSQL(apiSpec, flags)
+	// Parse the OpenAPI specification
+	_, errParsing := parseOpenAPISpec(apiSpec)
 
 	expectedErrorMsg := "cannot create v3 model from document: 1 errors reported"
 
