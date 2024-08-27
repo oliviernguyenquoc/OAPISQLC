@@ -165,3 +165,7 @@ func BuildTableFromSchema(tableName string, schema *highbase.Schema) *Table {
 
 	return &table
 }
+
+func (t Table) DeleteSQLStatement() string {
+	return fmt.Sprintf("DROP TABLE IF EXISTS %s CASCADE;\n", t.Name)
+}

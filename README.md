@@ -1,8 +1,10 @@
-# OA-SQLC: OpenAPI to PostgreSQL Schema (DDL) Library
-
 ![logo](./logo.svg)
 
-This library transforms [OpenAPI](https://github.com/OAI/OpenAPI-Specification) schemas into a PostgreSQL schema. The goal is to generate CREATE statements based on OpenAPI specifications. 
+# OpenAPI to PostgreSQL Schema (DDL) Library
+
+This library transforms [OpenAPI](https://github.com/OAI/OpenAPI-Specification) schemas into a PostgreSQL schema. It can also add specific tag used by SQLC library.
+
+It generates CREATE statements based on OpenAPI specifications. 
 
 It **only takes Components/Schemas** section of OpenAPI Spec.
 

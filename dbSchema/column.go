@@ -134,7 +134,7 @@ func (c Column) CreateSQLStatement() (string, error) {
 	}
 
 	// Handle special case for created_at and updated_at columns
-	if c.Name == "created_at" || c.Name == "updated_at" {
+	if c.Name == "created_at" || c.Name == "updated_at" || c.Name == "deleted_at" {
 		pgDataType = "TIMESTAMP"
 		c.NotNull = true
 		c.DefaultValue = "NOW()"

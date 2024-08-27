@@ -31,14 +31,18 @@ func compareSQL(t *testing.T, expectedSQL, actualSQL string) {
 	}
 }
 
-func testOpenAPISpecToSQL(t *testing.T, filename, expectedSQL string) {
+func testOpenAPISpecToSQL(t *testing.T, filename, expectedSQL string, deleteStatements bool) {
 
 	apiSpec, err := os.ReadFile(filename)
 	if err != nil {
 		t.Errorf("Error reading OpenAPI spec: %v", err)
 	}
 
-	sql, err := OpenAPISpecToSQL(apiSpec)
+	flags := Flags{
+		deleteStatements: deleteStatements,
+	}
+
+	sql, err := OpenAPISpecToSQL(apiSpec, flags)
 	if err != nil {
 		t.Errorf("Error transforming OpenAPI to SQL: %v", err)
 	}
@@ -51,7 +55,11 @@ func testErrors(t *testing.T, filename string) {
 		t.Errorf("Error reading OpenAPI spec: %v", err)
 	}
 
-	_, errParsing := OpenAPISpecToSQL(apiSpec)
+	flags := Flags{
+		deleteStatements: false,
+	}
+
+	_, errParsing := OpenAPISpecToSQL(apiSpec, flags)
 
 	expectedErrorMsg := "cannot create v3 model from document: 1 errors reported"
 
@@ -66,20 +74,20 @@ func TestSimpleSchemaTransformation(t *testing.T) {
 	CREATE TABLE IF NOT EXISTS users (
 		id BIGSERIAL NOT NULL PRIMARY KEY,
 		username TEXT
-	);`)
+	);`, false)
 }
 
 func TestTagManagement(t *testing.T) {
 	testOpenAPISpecToSQL(t, "tests/testdata/tag_management.yaml", `
 	CREATE TABLE IF NOT EXISTS pets (
 		name TEXT
-	);`)
+	);`, false)
 }
 
 func TestCustomExtensions(t *testing.T) {
 
 	// No table should be created for ignored schemas.
-	testOpenAPISpecToSQL(t, "tests/testdata/exclusion_extension.yaml", "")
+	testOpenAPISpecToSQL(t, "tests/testdata/exclusion_extension.yaml", "", false)
 }
 
 func TestComponentReferences(t *testing.T) {
@@ -93,7 +101,24 @@ func TestComponentReferences(t *testing.T) {
         id BIGSERIAL NOT NULL PRIMARY KEY,
         street TEXT,
         city TEXT
-    );`)
+    );`, false)
+}
+
+func TestComponentReferencesWithDeleteStatements(t *testing.T) {
+
+	testOpenAPISpecToSQL(t, "tests/testdata/component_references.yaml", `
+	DROP TABLE IF EXISTS users CASCADE;
+	DROP TABLE IF EXISTS addresses CASCADE;
+
+	CREATE TABLE IF NOT EXISTS users (
+        id BIGSERIAL NOT NULL PRIMARY KEY,
+        address_id INTEGER REFERENCES addresses(id)
+    );
+    CREATE TABLE IF NOT EXISTS addresses (
+        id BIGSERIAL NOT NULL PRIMARY KEY,
+        street TEXT,
+        city TEXT
+    );`, true)
 }
 
 func TestDataTypes(t *testing.T) {
@@ -112,7 +137,7 @@ func TestDataTypes(t *testing.T) {
 		dateTimeValue TIMESTAMP,
 		arrayValue JSON,
 		objectValue JSON
-	);`)
+	);`, false)
 }
 
 func TestConstraintsTranslation(t *testing.T) {
@@ -123,7 +148,7 @@ func TestConstraintsTranslation(t *testing.T) {
         productPrice NUMERIC CHECK (productPrice >= 0.010000 AND productPrice <= 9999.990000),
         productCode TEXT CHECK (productCode ~ '^[A-Z0-9]{10}$'),
         releaseDate DATE DEFAULT 2023-01-01
-    );`)
+    );`, false)
 }
 
 func TestCircularReferencesParsingError(t *testing.T) {
@@ -135,7 +160,7 @@ func TestCircularReferencesParsingError(t *testing.T) {
 func TestCircularReferences(t *testing.T) {
 
 	// No table should be created if the references are circular and cannot be resolved.
-	testOpenAPISpecToSQL(t, "tests/testdata/circular_references.yaml", "")
+	testOpenAPISpecToSQL(t, "tests/testdata/circular_references.yaml", "", false)
 }
 
 func TestAllOfSchema(t *testing.T) {
@@ -149,7 +174,7 @@ func TestAllOfSchema(t *testing.T) {
         type TEXT  NOT NULL,
         breed TEXT  NOT NULL,
         barkVolume INTEGER
-    );`)
+    );`, false)
 }
 
 func TestIdCreatedAtUpdatedAt(t *testing.T) {
@@ -159,7 +184,7 @@ func TestIdCreatedAtUpdatedAt(t *testing.T) {
 		created_at TIMESTAMP NOT NULL DEFAULT NOW(),
 		updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
 		username TEXT
-	);`)
+	);`, false)
 }
 
 func TestArrayOfRef(t *testing.T) {
@@ -173,7 +198,7 @@ func TestArrayOfRef(t *testing.T) {
 	CREATE TABLE IF NOT EXISTS tags (
 		id BIGSERIAL NOT NULL PRIMARY KEY,
 		name TEXT
-	);`)
+	);`, false)
 }
 
 func TestDefaultValues(t *testing.T) {
@@ -182,7 +207,7 @@ func TestDefaultValues(t *testing.T) {
         id BIGSERIAL NOT NULL PRIMARY KEY,
         username TEXT DEFAULT 'anonymous',
         signup_date DATE DEFAULT 2023-01-01
-    );`)
+    );`, false)
 }
 
 func TestUniqueConstraints(t *testing.T) {
@@ -191,7 +216,7 @@ func TestUniqueConstraints(t *testing.T) {
         productId TEXT UNIQUE,
         serialNumber TEXT UNIQUE,
         name TEXT
-    );`)
+    );`, false)
 }
 
 func TestEnumSupport(t *testing.T) {
@@ -201,7 +226,7 @@ func TestEnumSupport(t *testing.T) {
     CREATE TABLE IF NOT EXISTS orders (
         orderId INTEGER,
         status order_status
-    );`)
+    );`, false)
 }
 
 func TestReadmeExample(t *testing.T) {
@@ -222,5 +247,5 @@ func TestReadmeExample(t *testing.T) {
 	CREATE TABLE IF NOT EXISTS tags (
 		id BIGSERIAL NOT NULL PRIMARY KEY,
 		name TEXT
-	);`)
+	);`, false)
 }

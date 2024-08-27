@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -54,7 +55,7 @@ func parseOpenAPISpec(openAPISpec []byte) (*v3.Components, error) {
 }
 
 // fromComponentsToSQL takes a parsed OpenAPI document and generates a SQL statement.
-func fromComponentsToSQL(doc *v3.Components) (string, error) {
+func fromComponentsToSQL(doc *v3.Components, flags Flags) (string, error) {
 
 	schemas := doc.Schemas
 
@@ -71,6 +72,14 @@ func fromComponentsToSQL(doc *v3.Components) (string, error) {
 	}
 
 	var query string
+
+	// Add delete statements at the beginning of the output file
+	for _, table := range tableDefinitions {
+		if flags.deleteStatements {
+			deleteStatement := table.DeleteSQLStatement()
+			query += deleteStatement
+		}
+	}
 
 	for _, table := range tableDefinitions {
 		statement, err := table.CreateSQLStatement()
@@ -91,7 +100,7 @@ func fromComponentsToSQL(doc *v3.Components) (string, error) {
 	return normalizedQuery, nil
 }
 
-func OpenAPISpecToSQL(openAPISpec []byte) (string, error) {
+func OpenAPISpecToSQL(openAPISpec []byte, flags Flags) (string, error) {
 
 	// Parse the OpenAPI specification
 	doc, err := parseOpenAPISpec(openAPISpec)
@@ -101,13 +110,18 @@ func OpenAPISpecToSQL(openAPISpec []byte) (string, error) {
 	}
 
 	// Generate SQL statement based on the OpenAPI spec
-	sqlStatement, err := fromComponentsToSQL(doc)
+	sqlStatement, err := fromComponentsToSQL(doc, flags)
 	if err != nil {
 		fmt.Printf("Failed to generate SQL: %v\n", err)
 		return "", err
 	}
 
 	return sqlStatement, nil
+}
+
+// flags
+type Flags struct {
+	deleteStatements bool
 }
 
 func main() {
@@ -118,6 +132,13 @@ func main() {
 
 	filePath := os.Args[1]
 
+	// Parse flags
+	deleteStatements := flag.Bool("deleteStatements", true, "Add delete statements to SQL output")
+
+	flags := Flags{
+		deleteStatements: *deleteStatements,
+	}
+
 	// load an OpenAPI 3.1 specification from bytes
 	openAPISpec, err := os.ReadFile(filePath)
 	if err != nil {
@@ -125,7 +146,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	sqlStatement, err := OpenAPISpecToSQL(openAPISpec)
+	sqlStatement, err := OpenAPISpecToSQL(openAPISpec, flags)
 	if err != nil {
 		fmt.Printf("Failed to transform OpenAPI spec to SQL: %v\n", err)
 		os.Exit(1)
