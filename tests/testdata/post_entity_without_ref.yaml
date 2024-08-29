@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info:
+  title: Get single entity
+  version: 1.0.0
+paths:
+  /user:
+    post:
+      tags:
+        - users
+      summary: Add a new user to the store
+      description: 'Adds a new user to the system'
+      operationId: addUser
+      requestBody:
+        description: User object that needs to be added to the store
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: 'john_doe'
+                firstName:
+                  type: string
+                  example: 'John'
+                userStatus:
+                  type: integer
+                  description: 'User Status'
+                  example: 1
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Invalid input

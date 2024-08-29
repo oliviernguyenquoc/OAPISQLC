@@ -1,0 +1,57 @@
+openapi: 3.1.0
+info:
+  title: Get single entity
+  version: 1.0.0
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+        message:
+          type: string
+paths:
+  /users/{userId}:
+    delete:
+      tags:
+        - users
+      summary: Deletes a user
+      description: ''
+      operationId: deleteUser
+      parameters:
+        - name: api_key
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: petId
+          in: path
+          description: User id to delete
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: User not found
+      security:
+        - petstore_auth:
+            - write:users
+            - read:users

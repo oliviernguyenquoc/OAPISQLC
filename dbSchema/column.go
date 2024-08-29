@@ -259,7 +259,7 @@ func BuildColumnsFromSchema(tableName string, properties orderedmap.Map[string, 
 	for property := properties.First(); property != nil; property = property.Next() {
 		column, err := buildColumnFromProperty(tableName, property, requiredColumns)
 		if err != nil {
-			slog.Error("error building column for %s: %v", property.Key(), err)
+			slog.Error("Error building column for %s: %v", property.Key(), err)
 			return nil, fmt.Errorf("could not build column for %s", property.Key())
 
 		}

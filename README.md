@@ -155,6 +155,7 @@ Read more in this blog post (soon).
 
 * Only OpenAPI 3.1 compatible
 * Only compatible with YAML input
+* Only compatible with a "application/json" response
 * Only take schemas under Component/Schemas OpenAPI specs
 * Does not support foreign keys other than "id" columns
 * `anyOf` and `oneOf` is not supported (see note)

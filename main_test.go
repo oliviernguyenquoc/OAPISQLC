@@ -31,7 +31,7 @@ func compareSQL(t *testing.T, expectedSQL, actualSQL string) {
 	}
 }
 
-func testOpenAPISpecToSQL(t *testing.T, filename, expectedSQL string, flags Flags) {
+func testOpenAPISpecToDDLSQL(t *testing.T, filename, expectedSQL string, flags Flags) {
 
 	apiSpec, err := os.ReadFile(filename)
 	if err != nil {
@@ -51,6 +51,26 @@ func testOpenAPISpecToSQL(t *testing.T, filename, expectedSQL string, flags Flag
 	compareSQL(t, expectedSQL, sql)
 }
 
+func testOpenAPISpecToPathSQL(t *testing.T, filename, expectedSQL string, flags Flags) {
+
+	apiSpec, err := os.ReadFile(filename)
+	if err != nil {
+		t.Errorf("Error reading OpenAPI spec: %v", err)
+	}
+
+	// Parse the OpenAPI specification
+	doc, err := parseOpenAPISpec(apiSpec)
+	if err != nil {
+		t.Errorf("Error parsing OpenAPI spec: %v", err)
+	}
+
+	sql, err := fromComponentPathToSQL(doc.Paths, flags)
+	if err != nil {
+		t.Errorf("Error transforming OpenAPI to SQL: %v", err)
+	}
+	compareSQL(t, expectedSQL, sql)
+}
+
 func testErrors(t *testing.T, filename string) {
 	apiSpec, err := os.ReadFile(filename)
 	if err != nil {
@@ -60,7 +80,7 @@ func testErrors(t *testing.T, filename string) {
 	// Parse the OpenAPI specification
 	_, errParsing := parseOpenAPISpec(apiSpec)
 
-	expectedErrorMsg := "cannot create v3 model from document: 1 errors reported"
+	expectedErrorMsg := "Cannot create v3 model from document: 1 errors reported"
 
 	if errParsing == nil || errParsing.Error() != expectedErrorMsg {
 		t.Errorf("Expected error message: %s, got: %v", expectedErrorMsg, errParsing)
@@ -69,7 +89,7 @@ func testErrors(t *testing.T, filename string) {
 
 func TestSimpleSchemaTransformation(t *testing.T) {
 
-	testOpenAPISpecToSQL(t, "tests/testdata/simple_schema.yaml", `
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/simple_schema.yaml", `
 	CREATE TABLE IF NOT EXISTS users (
 		id BIGSERIAL NOT NULL PRIMARY KEY,
 		username TEXT
@@ -77,7 +97,7 @@ func TestSimpleSchemaTransformation(t *testing.T) {
 }
 
 func TestTagManagement(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/tag_management.yaml", `
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/tag_management.yaml", `
 	CREATE TABLE IF NOT EXISTS pets (
 		name TEXT
 	);`, Flags{})
@@ -86,12 +106,12 @@ func TestTagManagement(t *testing.T) {
 func TestCustomExtensions(t *testing.T) {
 
 	// No table should be created for ignored schemas.
-	testOpenAPISpecToSQL(t, "tests/testdata/exclusion_extension.yaml", "", Flags{})
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/exclusion_extension.yaml", "", Flags{})
 }
 
 func TestComponentReferences(t *testing.T) {
 
-	testOpenAPISpecToSQL(t, "tests/testdata/component_references.yaml", `
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/component_references.yaml", `
 	CREATE TABLE IF NOT EXISTS users (
         id BIGSERIAL NOT NULL PRIMARY KEY,
         address_id INTEGER REFERENCES addresses(id)
@@ -105,7 +125,7 @@ func TestComponentReferences(t *testing.T) {
 
 func TestComponentReferencesWithDeleteStatements(t *testing.T) {
 
-	testOpenAPISpecToSQL(t, "tests/testdata/component_references.yaml", `
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/component_references.yaml", `
 	DROP TABLE IF EXISTS users CASCADE;
 	DROP TABLE IF EXISTS addresses CASCADE;
 
@@ -121,7 +141,7 @@ func TestComponentReferencesWithDeleteStatements(t *testing.T) {
 }
 
 func TestDataTypes(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/data_types_conversion.yaml", `
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/data_types_conversion.yaml", `
 	CREATE TABLE IF NOT EXISTS data_type_examples (
 		smallInt INTEGER,
 		bigInt BIGINT,
@@ -140,7 +160,7 @@ func TestDataTypes(t *testing.T) {
 }
 
 func TestConstraintsTranslation(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/constraints.yaml", `
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/constraints.yaml", `
     CREATE TABLE IF NOT EXISTS products (
         productId INTEGER CHECK (productId >= 1.000000 AND productId <= 1000.000000),
         productName TEXT CHECK (char_length(productName) >= 1 AND char_length(productName) <= 100),
@@ -159,11 +179,11 @@ func TestCircularReferencesParsingError(t *testing.T) {
 func TestCircularReferences(t *testing.T) {
 
 	// No table should be created if the references are circular and cannot be resolved.
-	testOpenAPISpecToSQL(t, "tests/testdata/circular_references.yaml", "", Flags{})
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/circular_references.yaml", "", Flags{})
 }
 
 func TestAllOfSchema(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/allOf_example.yaml", `
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/allOf_example.yaml", `
 	CREATE TABLE IF NOT EXISTS animals (
         name TEXT NOT NULL,
         type TEXT NOT NULL
@@ -177,7 +197,7 @@ func TestAllOfSchema(t *testing.T) {
 }
 
 func TestIdCreatedAtUpdatedAt(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/id_created_at_updated_at.yaml", `
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/id_created_at_updated_at.yaml", `
 	CREATE TABLE IF NOT EXISTS users (
 		id BIGSERIAL NOT NULL PRIMARY KEY,
 		created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -187,7 +207,7 @@ func TestIdCreatedAtUpdatedAt(t *testing.T) {
 }
 
 func TestArrayOfRef(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/array_of_ref.yaml", `
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/array_of_ref.yaml", `
 	CREATE TABLE IF NOT EXISTS pets (
 		id BIGSERIAL NOT NULL PRIMARY KEY,
 		name TEXT NOT NULL,
@@ -201,7 +221,7 @@ func TestArrayOfRef(t *testing.T) {
 }
 
 func TestDefaultValues(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/default_values.yaml", `
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/default_values.yaml", `
     CREATE TABLE IF NOT EXISTS users (
         id BIGSERIAL NOT NULL PRIMARY KEY,
         username TEXT DEFAULT 'anonymous',
@@ -210,7 +230,7 @@ func TestDefaultValues(t *testing.T) {
 }
 
 func TestUniqueConstraints(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/unique_constraints.yaml", `
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/unique_constraints.yaml", `
     CREATE TABLE IF NOT EXISTS products (
         productId TEXT UNIQUE,
         serialNumber TEXT UNIQUE,
@@ -219,7 +239,7 @@ func TestUniqueConstraints(t *testing.T) {
 }
 
 func TestEnumSupport(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/enum_definition.yaml", `
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/enum_definition.yaml", `
     CREATE TYPE order_status AS ENUM ('pending', 'approved', 'shipped', 'cancelled');
 
     CREATE TABLE IF NOT EXISTS orders (
@@ -229,7 +249,7 @@ func TestEnumSupport(t *testing.T) {
 }
 
 func TestReadmeExample(t *testing.T) {
-	testOpenAPISpecToSQL(t, "tests/testdata/readme_example.yaml", `
+	testOpenAPISpecToDDLSQL(t, "tests/testdata/readme_example.yaml", `
 	CREATE TABLE IF NOT EXISTS pets (
         id BIGSERIAL NOT NULL PRIMARY KEY,
         category_id INTEGER REFERENCES categories(id),
@@ -266,5 +286,76 @@ func TestWriteInFolder(t *testing.T) {
 	err = os.Remove("tests/output")
 	if err != nil {
 		t.Errorf("Failed to remove folder: %v", err)
+	}
+}
+
+func TestGetMultipleEntities(t *testing.T) {
+	testOpenAPISpecToPathSQL(t, "tests/testdata/get_multiple_entities.yaml", `
+	-- name: GetAllUsers :many
+	SELECT * FROM users;
+	`, Flags{})
+}
+
+func TestGetSingleEntity(t *testing.T) {
+	testOpenAPISpecToPathSQL(t, "tests/testdata/get_single_entity.yaml", `
+	-- name: getUser :one
+	SELECT * FROM users WHERE id = $1;
+	`, Flags{})
+}
+
+func TestPostEntityWithRef(t *testing.T) {
+	testOpenAPISpecToPathSQL(t, "tests/testdata/post_entity_with_ref.yaml", `
+	-- name: addUser :one
+	INSERT INTO users (id, username) VALUES ($1, $2);
+	`, Flags{})
+}
+
+func TestPostEntityWithoutRef(t *testing.T) {
+	testOpenAPISpecToPathSQL(t, "tests/testdata/post_entity_without_ref.yaml", `
+	-- name: addUser :one
+	INSERT INTO users (username, firstName, userStatus) VALUES ($1, $2, $3, $4);
+	`, Flags{})
+}
+
+// Add test for returning post path
+
+func TestPutEntity(t *testing.T) {
+	testOpenAPISpecToPathSQL(t, "tests/testdata/put_entity.yaml", `
+	-- name: updateUser :one
+	UPDATE users SET username = $1 WHERE id = $2;
+	`, Flags{})
+}
+
+func TestDeleteEntity(t *testing.T) {
+	testOpenAPISpecToPathSQL(t, "tests/testdata/delete_entity.yaml", `
+	-- name: deleteUser :one
+	DELETE FROM users WHERE id = $1;
+	`, Flags{})
+}
+
+func TestFindFinalResourceWithRegex(t *testing.T) {
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{"/companies/{companyId}/departments/{departmentId}/employees/{empId}", "employees"},
+		{"/companies/{companyId}/departments/{departmentId}/", "departments"},
+		{"/companies/{companyId}/", "companies"},
+		{"/users/{userId}/posts/{postId}/comments/{commentId}", "comments"},
+		{"/users/", "users"},
+		{"/", ""},
+		{"", ""},
+		{"/users/{userId}/settings", "settings"},
+		{"/products/{productId}/reviews", "reviews"},
+		{"/stores/{storeId}/inventory/{itemId}/details", "details"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			result := FindFinalResourceWithRegex(test.path)
+			if result != test.expected {
+				t.Errorf("For path '%s', expected '%s', but got '%s'", test.path, test.expected, result)
+			}
+		})
 	}
 }

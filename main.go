@@ -6,9 +6,13 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 
+	"github.com/jinzhu/inflection"
 	"github.com/oliviernguyenquoc/oas2pgschema/dbSchema"
+	"github.com/oliviernguyenquoc/oas2pgschema/sqlBuilder"
 	"github.com/pb33f/libopenapi"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 	pg_query "github.com/pganalyze/pg_query_go/v5"
@@ -21,17 +25,14 @@ func parseOpenAPISpec(openAPISpec []byte) (*v3.Document, error) {
 	// create a new document from specification bytes
 	document, err := libopenapi.NewDocument(openAPISpec)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create document from OpenAPI spec: %v", err)
+		return nil, fmt.Errorf("Cannot create document from OpenAPI spec: %v", err)
 	}
 
 	// because we know this is a v3 spec, we can build a ready to go model from it.
 	v3Model, errors := document.BuildV3Model()
 	if len(errors) > 0 {
-		for i := range errors {
-			fmt.Printf("error: %e\n", errors[i])
-		}
-
-		return nil, fmt.Errorf("cannot create v3 model from document: %d errors reported", len(errors))
+		slog.Error("Error", "errors", errors)
+		return nil, fmt.Errorf("Cannot create v3 model from document: %d errors reported", len(errors))
 	}
 
 	// Get a count of the number of paths and schemas.
@@ -43,7 +44,7 @@ func parseOpenAPISpec(openAPISpec []byte) (*v3.Document, error) {
 	}
 
 	var nbSchemas int
-	if v3Model.Model.Components.Schemas == nil {
+	if v3Model.Model.Components == nil || v3Model.Model.Components.Schemas == nil {
 		nbSchemas = 0
 	} else {
 		nbSchemas = v3Model.Model.Components.Schemas.Len()
@@ -101,42 +102,70 @@ func fromComponentsToSQL(doc *v3.Components, flags Flags) (string, error) {
 	return normalizedQuery, nil
 }
 
-func fromComponentPathToSQL(doc *v3.Paths, flags Flags) ([]string, error) {
+func FindFinalResourceWithRegex(path string) string {
+	// Définir une regex pour capturer le dernier segment non variable du chemin
+	re := regexp.MustCompile(`\/([^\/\{\}]+)(?:\/|\z)`)
+
+	// Trouver toutes les correspondances
+	matches := re.FindAllStringSubmatch(path, -1)
+
+	// Si des correspondances sont trouvées, retourner la dernière
+	if len(matches) > 0 {
+		return matches[len(matches)-1][1]
+	}
+
+	// Si aucune correspondance n'est trouvée, retourner une chaîne vide
+	return ""
+}
+
+func fromComponentPathToSQL(doc *v3.Paths, flags Flags) (string, error) {
 	paths := doc.PathItems
 
-	var pathSQLStatements []string
+	var pathSQLStatements string
 
 	for path := paths.First(); path != nil; path = path.Next() {
 		pathItem := path.Value()
 
+		// Get last resource name mentionned in the path (ex: /users/{id} -> users)
+		resource := FindFinalResourceWithRegex(path.Key())
+		resource = inflection.Plural(strings.ToLower(resource))
+
+		var SQLStatement string
+
 		if pathItem.Get != nil {
-			operation := pathItem.Get
+			SQLStatement += sqlBuilder.CommentSQLC(pathItem.Get)
+			SQLStatement += sqlBuilder.GETSQLStatement(resource)
+		}
 
-			var operationSQLStatement string
-			var isMany = false
+		if pathItem.Post != nil {
+			SQLStatement += sqlBuilder.CommentSQLC(pathItem.Post)
+			SQLStatement += sqlBuilder.POSTSQLStatement(pathItem.Post, resource)
+		}
 
-			// Check if response is an array based on the schema type
-			if operation.Responses != nil && operation.Responses.Codes != nil && operation.Responses.Codes.Value("200") != nil {
-				response := operation.Responses.Codes.Value("200")
-				if response.Content != nil && response.Content.Value("application/json") != nil && response.Content.Value("application/json").Schema != nil {
-					schema := response.Content.Value("application/json").Schema.Schema()
-					if schema.Type != nil && schema.Type[0] == "array" {
-						isMany = true
-					}
-				}
-			}
+		if pathItem.Put != nil {
+			SQLStatement += sqlBuilder.CommentSQLC(pathItem.Put)
+			SQLStatement += sqlBuilder.PUTSQLStatement(pathItem.Put, resource)
+		}
 
-			if isMany {
-				operationSQLStatement = fmt.Sprintf("-- name: %s :many \n", operation.OperationId)
-			} else {
-				operationSQLStatement = fmt.Sprintf("-- name: %s :one \n", operation.OperationId)
-			}
-			operationSQLStatement += fmt.Sprintf("SELECT * FROM %s", operation.OperationId)
-			operationSQLStatement += "\n\n"
+		if pathItem.Delete != nil {
+			SQLStatement += sqlBuilder.CommentSQLC(pathItem.Delete)
+			SQLStatement += sqlBuilder.DELETESQLStatement(pathItem.Delete, resource)
+		}
+
+		if SQLStatement != "" {
+			pathSQLStatements += SQLStatement
+			pathSQLStatements += "\n\n"
 		}
 	}
 
-	return pathSQLStatements, nil
+	normalizedQuery, err := pg_query.Normalize(pathSQLStatements)
+	if err != nil {
+		slog.Error("Error checking and normalizing query %s", pathSQLStatements, err)
+		return "", err
+	}
+
+	// Placeholder SQL generation logic
+	return normalizedQuery, nil
 }
 
 func writeInFolder(sqlStatement string, flags Flags) error {
