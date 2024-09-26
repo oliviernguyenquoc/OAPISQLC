@@ -88,14 +88,14 @@ You can use the library either in CLI or in Go.
 
 Run: `go build`
 
-Then: `./oas2pgschema YOUR_OPENAPI.yaml`
+Then: `./oapisqlc YOUR_OPENAPI.yaml`
 
 ### In Go:
 
 ```go
 import (
     "os"
-    "https://github.com/oliviernguyenquoc/oas2pgschema"
+    "github.com/oliviernguyenquoc/oapisqlc"
 )
 
 openAPISpec, err := os.ReadFile(filePath)
@@ -104,7 +104,7 @@ if err != nil {
     os.Exit(1)
 }
 
-sqlStatement, err := oas2pgschema.OpenAPISpecToSQL(openAPISpec)
+sqlStatement, err := oapisqlc.OpenAPISpecToSQL(openAPISpec)
 if err != nil {
     fmt.Printf("Failed to transform OpenAPI spec to SQL: %v\n", err)
     os.Exit(1)

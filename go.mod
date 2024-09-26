@@ -1,4 +1,4 @@
-module github.com/oliviernguyenquoc/oas2pgschema
+module github.com/oliviernguyenquoc/oapisqlc
 
 go 1.23
 

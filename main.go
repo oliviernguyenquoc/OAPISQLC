@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/oliviernguyenquoc/oas2pgschema/dbSchema"
+	"github.com/oliviernguyenquoc/oapisqlc/dbSchema"
 	"github.com/pb33f/libopenapi"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
 	pg_query "github.com/pganalyze/pg_query_go/v5"
