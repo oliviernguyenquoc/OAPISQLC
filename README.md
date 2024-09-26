@@ -8,6 +8,10 @@ It generates CREATE statements based on OpenAPI specifications.
 
 It **only takes Components/Schemas** section of OpenAPI Spec.
 
+## ⚠️  Warning
+
+🚧 This project is in progress 🚧
+
 ## Example
 
 MyOpenAPISpec.YAML:
