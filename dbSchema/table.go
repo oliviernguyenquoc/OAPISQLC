@@ -1,45 +1,43 @@
+// Package dbSchema turns OpenAPI schemas into PostgreSQL table definitions.
 package dbSchema
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/jinzhu/inflection"
-	highbase "github.com/pb33f/libopenapi/datamodel/high/base"
 )
 
-var postgresReservedWords = []string{
-	"ALL", "ANALYSE", "ANALYZE", "AND", "ANY", "ARRAY", "AS", "ASC", "ASYMMETRIC",
-	"AUTHORIZATION", "BINARY", "BOTH", "CASE", "CAST", "CHECK", "COLLATE", "COLLATION",
-	"COLUMN", "CONCURRENTLY", "CONSTRAINT", "CREATE", "CROSS", "CURRENT_CATALOG",
-	"CURRENT_DATE", "CURRENT_ROLE", "CURRENT_SCHEMA", "CURRENT_TIME", "CURRENT_TIMESTAMP",
-	"CURRENT_USER", "DEFAULT", "DEFERRABLE", "DESC", "DISTINCT", "DO", "ELSE", "END",
-	"EXCEPT", "FALSE", "FETCH", "FOR", "FOREIGN", "FREEZE", "FROM", "FULL", "GRANT", "GROUP",
-	"HAVING", "ILIKE", "IN", "INITIALLY", "INNER", "INTERSECT", "INTO", "IS", "ISNULL", "JOIN",
-	"LATERAL", "LEADING", "LEFT", "LIKE", "LIMIT", "LOCALTIME", "LOCALTIMESTAMP", "NATURAL",
-	"NOT", "NOTNULL", "NULL", "OFFSET", "ON", "ONLY", "OR", "ORDER", "OUTER", "OVERLAPS",
-	"PLACING", "PRIMARY", "REFERENCES", "RETURNING", "RIGHT", "SELECT", "SESSION_USER",
-	"SIMILAR", "SOME", "SYMMETRIC", "SYSTEM_USER", "TABLE", "TABLESAMPLE", "THEN", "TO",
-	"TRAILING", "TRUE", "UNION", "UNIQUE", "USER", "USING", "VARIADIC", "VERBOSE", "WHEN",
-	"WHERE", "WINDOW", "WITH",
-}
-
+// Table is one database table, as read from a single schema.
 type Table struct {
 	DefaultDatabaseName string
 	Name                string
-	ColumnDefinition    []Column
+	Key                 Key
+	// CompositeKey names the columns of a key spanning more than one column,
+	// which has to be declared for the table rather than on a column.
+	CompositeKey     []string
+	ColumnDefinition []Column
 }
 
+// TableName is the table a schema of this name becomes.
+func TableName(schemaName string) string {
+	return inflection.Plural(toSnakeCase(schemaName))
+}
+
+// GenerateEnumSQL renders a CREATE TYPE ... AS ENUM statement. It reports an
+// error when values is empty, which Postgres would reject.
 func GenerateEnumSQL(enumName string, values []string) (string, error) {
 	if len(values) == 0 {
-		return "", fmt.Errorf("enum '%s' must have at least one value", enumName)
+		return "", &Error{
+			Code:    EINVALID,
+			Message: fmt.Sprintf("enum %s has no values", enumName),
+		}
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("CREATE TYPE %s AS ENUM (", enumName))
+	fmt.Fprintf(&sb, "CREATE TYPE %s AS ENUM (", enumName)
 	for i, value := range values {
-		sb.WriteString(fmt.Sprintf("'%s'", value))
+		fmt.Fprintf(&sb, "'%s'", value)
 		if i < len(values)-1 {
 			sb.WriteString(", ")
 		}
@@ -48,52 +46,32 @@ func GenerateEnumSQL(enumName string, values []string) (string, error) {
 	return sb.String(), nil
 }
 
-func (t Table) createEnumSQLStatement() (string, error) {
-	var sb strings.Builder
+// CreateSQLStatement renders the table's CREATE TABLE statement, preceded by a
+// CREATE TYPE for each of its enum columns. It returns EINVALID when a column
+// has no Postgres equivalent.
+func (t *Table) CreateSQLStatement(dialect *Dialect) (string, error) {
+	const op = "dbSchema.Table.CreateSQLStatement"
 
-	for _, column := range t.ColumnDefinition {
-		if len(column.Enum) > 0 {
-			enumName := fmt.Sprintf("%s_%s", inflection.Singular(t.Name), column.Name)
-			enumSQL, err := GenerateEnumSQL(enumName, column.Enum)
-			if err != nil {
-				return "", err // Handle the error appropriately, possibly accumulating errors or stopping at the first.
-			}
-			sb.WriteString(enumSQL + "\n")
-		}
-	}
-
-	return sb.String(), nil
-}
-
-func isReservedWord(word string) bool {
-	return slices.Contains(postgresReservedWords, strings.ToUpper(word))
-}
-
-func (t Table) CreateSQLStatement() (string, error) {
 	var sb strings.Builder
 
 	// Add enum types
 	enumSQL, err := t.createEnumSQLStatement()
 	if err != nil {
-		return "", err
+		return "", &Error{Op: op, Err: err}
 	}
 	sb.WriteString(enumSQL + "\n")
 
 	sb.WriteString("CREATE TABLE IF NOT EXISTS ")
 
 	// Handle reserved words
-	if isReservedWord(t.Name) {
-		sb.WriteString(fmt.Sprintf("\"%s\"", t.Name))
-	} else {
-		sb.WriteString(t.Name)
-	}
+	sb.WriteString(dialect.QuoteIdentifier(t.Name))
 
 	sb.WriteString(" (\n")
 
-	for i, column := range t.ColumnDefinition {
-		statement, err := column.CreateSQLStatement()
+	for i := range t.ColumnDefinition {
+		statement, err := t.ColumnDefinition[i].CreateSQLStatement(dialect)
 		if err != nil {
-			return "", err
+			return "", &Error{Op: op, Err: err}
 		}
 
 		sb.WriteString(statement)
@@ -102,70 +80,65 @@ func (t Table) CreateSQLStatement() (string, error) {
 		}
 	}
 
+	if len(t.CompositeKey) > 0 {
+		fmt.Fprintf(&sb, ",\nPRIMARY KEY (%s)", strings.Join(t.CompositeKey, ", "))
+	}
+
 	sb.WriteString("\n);")
 
 	return sb.String(), nil
-
 }
 
 func toSnakeCase(s string) string {
-	var result string
+	var result strings.Builder
 
 	for i, v := range s {
 		if i > 0 && v >= 'A' && v <= 'Z' {
-			result += "_"
+			result.WriteRune('_')
 		}
 
-		result += string(v)
+		result.WriteRune(v)
 	}
 
-	return strings.ToLower(result)
+	return strings.ToLower(result.String())
 }
 
-func BuildTableFromSchema(tableName string, schema *highbase.Schema) *Table {
-	table := Table{
-		Name: inflection.Plural(toSnakeCase(tableName)),
-	}
-
-	properties := schema.Properties
-	if properties == nil && schema.AllOf == nil {
-		fmt.Printf("No properties found for schema: %s\n", tableName)
-		return &table
-	}
-
-	// Check if there is a custom extension x-database-entity
-	if schema.Extensions != nil {
-		if val, ok := schema.Extensions.Get("x-database-entity"); ok && val.Value == "false" {
-			return &table
-		}
-	}
-
-	requiredColumns := schema.Required
-
-	// Check if there is allOf in the schema
-	if schema.AllOf != nil {
-		for _, item := range schema.AllOf {
-			requiredColumns = append(requiredColumns, item.Schema().Required...)
-			colDef, err := BuildColumnsFromSchema(tableName, *item.Schema().Properties, requiredColumns)
-			if err != nil {
-				fmt.Printf("Error building columns from schema: %v\n", err)
-				return &table
-			}
-
-			table.ColumnDefinition = append(table.ColumnDefinition, colDef...)
-		}
-	} else {
-		colDef, err := BuildColumnsFromSchema(tableName, *properties, requiredColumns)
-		if err != nil {
-			fmt.Printf("Error building columns from schema: %v\n", err)
-			return &table
-		}
-		table.ColumnDefinition = colDef
-	}
-
-	return &table
-}
-
-func (t Table) DeleteSQLStatement() string {
+// DeleteSQLStatement renders the DROP TABLE statement for the table.
+func (t *Table) DeleteSQLStatement() string {
 	return fmt.Sprintf("DROP TABLE IF EXISTS %s CASCADE;\n", t.Name)
+}
+
+func (t *Table) createEnumSQLStatement() (string, error) {
+	var sb strings.Builder
+
+	for i := range t.ColumnDefinition {
+		column := &t.ColumnDefinition[i]
+		if len(column.Enum) > 0 {
+			enumName := fmt.Sprintf("%s_%s", inflection.Singular(t.Name), column.Name)
+			enumSQL, err := GenerateEnumSQL(enumName, column.Enum)
+			if err != nil {
+				return "", &Error{Op: "dbSchema.Table.createEnumSQLStatement", Err: err}
+			}
+			sb.WriteString(enumSQL + "\n")
+		}
+	}
+
+	return sb.String(), nil
+}
+
+// markKeyColumn flags the column the table is identified by. A primary key is
+// necessarily NOT NULL, whether or not the schema said so.
+func (t *Table) markKeyColumn() {
+	if !t.Key.Declared() {
+		return
+	}
+
+	for i := range t.ColumnDefinition {
+		if t.ColumnDefinition[i].Name == t.Key.Column {
+			t.ColumnDefinition[i].PrimaryKey = true
+			t.ColumnDefinition[i].NotNull = true
+
+			return
+		}
+	}
 }

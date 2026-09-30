@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "roster.json",
+  "type": "object",
+  "properties": { "roster": { "$ref": "#/definitions/RosterDType" } },
+  "definitions": {
+    "RosterDType": {
+      "type": "object",
+      "properties": {
+        "classes": { "type": "array", "items": { "$ref": "#/definitions/ClassDType" } },
+        "courses": { "type": "array", "items": { "$ref": "#/definitions/CourseDType" } }
+      }
+    },
+    "ClassDType": {
+      "type": "object",
+      "required": ["sourcedId", "title"],
+      "properties": {
+        "sourcedId": { "type": "string" },
+        "title": { "type": "string" },
+        "course": { "$ref": "#/definitions/CourseGUIDRefDType" },
+        "terms": { "type": "array", "items": { "$ref": "#/definitions/AcadSessionGUIDRefDType" } },
+        "metadata": { "$ref": "#/definitions/MetadataDType" }
+      }
+    },
+    "CourseDType": {
+      "type": "object",
+      "required": ["sourcedId"],
+      "properties": {
+        "sourcedId": { "type": "string" },
+        "title": { "type": "string" }
+      }
+    },
+    "CourseGUIDRefDType": {
+      "type": "object",
+      "required": ["href", "sourcedId", "type"],
+      "properties": {
+        "href": { "type": "string", "format": "uri" },
+        "sourcedId": { "type": "string" },
+        "type": { "type": "string", "enum": ["course"] }
+      }
+    },
+    "AcadSessionGUIDRefDType": {
+      "type": "object",
+      "required": ["href", "sourcedId", "type"],
+      "properties": {
+        "href": { "type": "string", "format": "uri" },
+        "sourcedId": { "type": "string" },
+        "type": { "type": "string", "enum": ["academicSession"] }
+      }
+    },
+    "MetadataDType": {
+      "type": "object",
+      "properties": { "note": { "type": "string" } }
+    }
+  }
+}

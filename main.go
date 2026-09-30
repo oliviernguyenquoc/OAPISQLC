@@ -1,37 +1,75 @@
+// Command oapisqlc generates PostgreSQL DDL from the schemas of an OpenAPI
+// document or a bare JSON Schema.
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
+	"os/signal"
 	"path/filepath"
-	"strconv"
+	"strings"
+	"syscall"
 
 	"github.com/oliviernguyenquoc/oapisqlc/dbSchema"
 	"github.com/pb33f/libopenapi"
+	"github.com/pb33f/libopenapi/datamodel/high/base"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
-	pg_query "github.com/pganalyze/pg_query_go/v5"
+	"github.com/pb33f/libopenapi/orderedmap"
+	pg_query "github.com/pganalyze/pg_query_go/v6"
 )
 
-// parseOpenAPISpec takes the path to an OpenAPI YAML file, parses it using the libopenapi library,
-// and returns the parsed data structure or an error if something goes wrong.
-func parseOpenAPISpec(openAPISpec []byte) (*v3.Document, error) {
+// Exit codes. main is the only place that turns an error into one of these.
+const (
+	exitOK    = 0
+	exitFail  = 1
+	exitUsage = 2
+)
+
+var (
+	// errNoSpecPath reports a command line with no file to read.
+	errNoSpecPath = errors.New("no spec file given")
+
+	// errUsage marks a command line the flag set has already complained about
+	// on stderr, so main can set an exit code without repeating it.
+	errUsage = errors.New("bad usage")
+)
+
+// Flags carries the command line options through the generation steps.
+type Flags struct {
+	deleteStatements bool
+	outputFolderPath string
+}
+
+// parseOpenAPISpec parses an OpenAPI document, or a bare JSON Schema, into the
+// v3 model. It reports what it found through logger rather than to a package
+// level default, so a caller decides where that goes.
+func parseOpenAPISpec(
+	ctx context.Context,
+	logger *slog.Logger,
+	openAPISpec []byte,
+) (*v3.Document, error) {
+	// libopenapi reads OpenAPI documents only, so a bare JSON Schema has to be
+	// given an OpenAPI shape before it can be parsed at all.
+	openAPISpec, err := normalizeSpec(openAPISpec)
+	if err != nil {
+		return nil, err
+	}
 
 	// create a new document from specification bytes
 	document, err := libopenapi.NewDocument(openAPISpec)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create document from OpenAPI spec: %v", err)
+		return nil, fmt.Errorf("cannot create document from OpenAPI spec: %w", err)
 	}
 
 	// because we know this is a v3 spec, we can build a ready to go model from it.
-	v3Model, errors := document.BuildV3Model()
-	if len(errors) > 0 {
-		for i := range errors {
-			fmt.Printf("error: %e\n", errors[i])
-		}
-
-		return nil, fmt.Errorf("cannot create v3 model from document: %d errors reported", len(errors))
+	v3Model, err := document.BuildV3Model()
+	if err != nil {
+		return nil, fmt.Errorf("cannot create v3 model from document: %w", err)
 	}
 
 	// Get a count of the number of paths and schemas.
@@ -43,178 +81,309 @@ func parseOpenAPISpec(openAPISpec []byte) (*v3.Document, error) {
 	}
 
 	var nbSchemas int
-	if v3Model.Model.Components.Schemas == nil {
+	if v3Model.Model.Components == nil || v3Model.Model.Components.Schemas == nil {
 		nbSchemas = 0
 	} else {
 		nbSchemas = v3Model.Model.Components.Schemas.Len()
 	}
 
 	// Print the number of paths and schemas in the document
-	slog.Info("There are %s paths and %d schemas in the document", strconv.Itoa(nbPaths), nbSchemas)
+	logger.InfoContext(ctx, "parsed document", "paths", nbPaths, "schemas", nbSchemas)
 
 	return &v3Model.Model, nil
 }
 
-// fromComponentsToSQL takes a parsed OpenAPI document and generates a SQL statement.
-func fromComponentsToSQL(doc *v3.Components, flags Flags) (string, error) {
-
-	schemas := doc.Schemas
-
-	var tableDefinitions []dbSchema.Table
-
-	for schema := schemas.First(); schema != nil; schema = schema.Next() {
-		tableName := schema.Key()
-		table := dbSchema.BuildTableFromSchema(tableName, schema.Value().Schema())
-
-		// If there is no column, no need to create a table
-		if len(table.ColumnDefinition) != 0 {
-			tableDefinitions = append(tableDefinitions, *table)
-		}
+// fromComponentsToSQL generates the DDL for a document's schemas.
+//
+// A schema that cannot be expressed as a table is returned in skipped and left
+// out of the SQL; the run continues with the schemas that remain. Only a
+// failure that invalidates the whole document is returned as err.
+func fromComponentsToSQL(
+	dialect *dbSchema.Dialect,
+	doc *v3.Document,
+	flags Flags,
+) (sql string, skipped []error, err error) {
+	if doc == nil || doc.Components == nil ||
+		doc.Components.Schemas == nil || doc.Components.Schemas.Len() == 0 {
+		return "", nil, errNoSchemas
 	}
 
-	var query string
+	schemas := doc.Components.Schemas
 
-	// Add delete statements at the beginning of the output file
-	for _, table := range tableDefinitions {
-		if flags.deleteStatements {
-			deleteStatement := table.DeleteSQLStatement()
-			query += deleteStatement
-		}
-	}
+	classification := dbSchema.Classify(schemas, payloadRoots(doc))
+	tableDefinitions, skipped := dbSchema.NewBuilder(classification).Tables(schemas)
 
-	for _, table := range tableDefinitions {
-		statement, err := table.CreateSQLStatement()
-		if err != nil {
-			return "", err
-		}
-		query += "\n\n"
-		query += statement
+	query, unrenderable, err := renderDDL(dialect, tableDefinitions, flags.deleteStatements)
+	skipped = append(skipped, unrenderable...)
+
+	if err != nil {
+		return "", skipped, err
 	}
 
 	normalizedQuery, err := pg_query.Normalize(query)
 	if err != nil {
-		slog.Error("Error checking and normalizing query %s", query, err)
-		return "", err
+		return "", skipped, fmt.Errorf("cannot normalize query: %w", err)
 	}
 
-	// Placeholder SQL generation logic
-	return normalizedQuery, nil
+	return normalizedQuery, skipped, nil
 }
 
-func fromComponentPathToSQL(doc *v3.Paths, flags Flags) ([]string, error) {
-	paths := doc.PathItems
+// skippable reports whether a failure concerns a single schema rather than the
+// whole document, and so should cost that schema and nothing else.
+func skippable(err error) bool {
+	return dbSchema.ErrorCode(err) == dbSchema.EINVALID
+}
 
-	var pathSQLStatements []string
+// payloadRoots names the schemas a document actually returns, which is where
+// classification starts: what a payload carries directly it owns, and what it
+// reaches only through one of those it merely points at.
+//
+// For a document converted from a bare JSON Schema the root is the schema the
+// conversion put at the top. For an OpenAPI document the roots are the schemas
+// its operations send and return. A document with neither — a components-only
+// spec — has no roots, and says nothing about what it owns.
+func payloadRoots(doc *v3.Document) []string {
+	if doc.Paths == nil || doc.Paths.PathItems == nil {
+		return nil
+	}
 
-	for path := paths.First(); path != nil; path = path.Next() {
-		pathItem := path.Value()
+	var roots []string
 
-		if pathItem.Get != nil {
-			operation := pathItem.Get
-
-			var operationSQLStatement string
-			var isMany = false
-
-			// Check if response is an array based on the schema type
-			if operation.Responses != nil && operation.Responses.Codes != nil && operation.Responses.Codes.Value("200") != nil {
-				response := operation.Responses.Codes.Value("200")
-				if response.Content != nil && response.Content.Value("application/json") != nil && response.Content.Value("application/json").Schema != nil {
-					schema := response.Content.Value("application/json").Schema.Schema()
-					if schema.Type != nil && schema.Type[0] == "array" {
-						isMany = true
-					}
-				}
-			}
-
-			if isMany {
-				operationSQLStatement = fmt.Sprintf("-- name: %s :many \n", operation.OperationId)
-			} else {
-				operationSQLStatement = fmt.Sprintf("-- name: %s :one \n", operation.OperationId)
-			}
-			operationSQLStatement += fmt.Sprintf("SELECT * FROM %s", operation.OperationId)
-			operationSQLStatement += "\n\n"
+	for path := doc.Paths.PathItems.First(); path != nil; path = path.Next() {
+		for _, operation := range path.Value().GetOperations().FromOldest() {
+			roots = append(roots, operationRoots(operation)...)
 		}
 	}
 
-	return pathSQLStatements, nil
+	return roots
 }
 
-func writeInFolder(sqlStatement string, flags Flags) error {
-	// Create folder if not exist
-	err := os.MkdirAll(flags.outputFolderPath, 0755)
-	if err != nil {
-		fmt.Printf("Failed to create output folder: %v\n", err)
-		return err
+// operationRoots names the schemas one operation sends or returns.
+func operationRoots(operation *v3.Operation) []string {
+	var roots []string
+
+	if operation.RequestBody != nil {
+		roots = append(roots, mediaTypeRoots(operation.RequestBody.Content)...)
 	}
 
-	err = os.WriteFile(filepath.Join(flags.outputFolderPath, "schemas.sql"), []byte(sqlStatement), 0644)
-	if err != nil {
-		fmt.Printf("Failed to write SQL to file: %v\n", err)
-		return err
+	if operation.Responses == nil || operation.Responses.Codes == nil {
+		return roots
 	}
-	fmt.Printf("SQL written in folder %s\n", flags.outputFolderPath)
+
+	for code := operation.Responses.Codes.First(); code != nil; code = code.Next() {
+		roots = append(roots, mediaTypeRoots(code.Value().Content)...)
+	}
+
+	return roots
+}
+
+// mediaTypeRoots names the schemas a set of media types carries, following an
+// array to the schema of its items.
+func mediaTypeRoots(content *orderedmap.Map[string, *v3.MediaType]) []string {
+	if content == nil {
+		return nil
+	}
+
+	var roots []string
+
+	for media := content.First(); media != nil; media = media.Next() {
+		proxy := media.Value().Schema
+		if proxy == nil {
+			continue
+		}
+
+		if name, ok := schemaRefName(proxy); ok {
+			roots = append(roots, name)
+
+			continue
+		}
+
+		// An inline body — an envelope, say — carries its payload in the
+		// schemas it points at rather than being one itself.
+		roots = append(roots, dbSchema.ReferencedSchemas(proxy.Schema())...)
+	}
+
+	return roots
+}
+
+// schemaRefName reads the component name out of a local schema reference.
+func schemaRefName(proxy *base.SchemaProxy) (string, bool) {
+	const prefix = "#/components/schemas/"
+
+	name, ok := strings.CutPrefix(proxy.GetReference(), prefix)
+
+	return name, ok && name != ""
+}
+
+// renderDDL renders the create statement for each table, preceded by a drop
+// statement for every table it rendered when deleteStatements is set.
+//
+// A table whose columns have no Postgres equivalent is left out and returned in
+// skipped, on the same terms as a schema that never became a table at all.
+func renderDDL(
+	dialect *dbSchema.Dialect,
+	tables []dbSchema.Table,
+	deleteStatements bool,
+) (sql string, skipped []error, err error) {
+	var creates strings.Builder
+
+	rendered := make([]dbSchema.Table, 0, len(tables))
+
+	for i := range tables {
+		table := &tables[i]
+
+		statement, err := table.CreateSQLStatement(dialect)
+		if err != nil {
+			if skippable(err) {
+				skipped = append(skipped, fmt.Errorf("table %s: %w", table.Name, err))
+
+				continue
+			}
+
+			return "", skipped, fmt.Errorf("cannot build table %s: %w", table.Name, err)
+		}
+
+		rendered = append(rendered, *table)
+
+		creates.WriteString("\n\n")
+		creates.WriteString(statement)
+	}
+
+	var query strings.Builder
+
+	// Add delete statements at the beginning of the output file
+	if deleteStatements {
+		for i := range rendered {
+			query.WriteString(rendered[i].DeleteSQLStatement())
+		}
+	}
+
+	query.WriteString(creates.String())
+
+	return query.String(), skipped, nil
+}
+
+func writeInFolder(stdout io.Writer, sqlStatement string, flags Flags) error {
+	// Create folder if not exist
+	if err := os.MkdirAll(flags.outputFolderPath, 0o755); err != nil {
+		return fmt.Errorf("cannot create output folder %s: %w", flags.outputFolderPath, err)
+	}
+
+	schemaFile := filepath.Join(flags.outputFolderPath, "schemas.sql")
+	if err := os.WriteFile(schemaFile, []byte(sqlStatement), 0o600); err != nil {
+		return fmt.Errorf("cannot write %s: %w", schemaFile, err)
+	}
+	_, _ = fmt.Fprintf(stdout, "SQL written in folder %s\n", flags.outputFolderPath)
 
 	return nil
 }
 
-// flags
-type Flags struct {
-	deleteStatements bool
-	outputFolderPath string
+func main() {
+	ctx, stop := signal.NotifyContext(context.Background(),
+		os.Interrupt, syscall.SIGQUIT, syscall.SIGTERM,
+	)
+
+	code := exitCode(run(ctx, os.Args, os.Stdout, os.Stderr), os.Stderr)
+
+	// Release the signal goroutine before leaving. A deferred stop would not
+	// run, because os.Exit does not unwind.
+	stop()
+
+	os.Exit(code)
 }
 
-func main() {
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: go run main.go <path_to_yaml_file>")
-		os.Exit(1)
+// exitCode reports the status main should exit with, after writing whatever
+// the user has not already been told.
+func exitCode(err error, stderr io.Writer) int {
+	switch {
+	// -h is a request, not a failure.
+	case err == nil, errors.Is(err, flag.ErrHelp):
+		return exitOK
+
+	// The flag set has already written the reason and the usage to stderr.
+	case errors.Is(err, errUsage):
+		return exitUsage
+
+	default:
+		_, _ = fmt.Fprintf(stderr, "oapisqlc: %v\n", err)
+
+		return exitFail
+	}
+}
+
+// run is intentionally separated from main to improve testability. Please preserve this comment.
+//
+// It takes the whole argument slice including the program name, and writes
+// everything it produces to stdout and everything it reports to stderr, so a
+// test can drive it with buffers. It never calls os.Exit: main owns exit codes.
+func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
+	flags, specPath, err := parseArgs(args, stderr)
+	if err != nil {
+		return err
 	}
 
-	filePath := os.Args[1]
+	logger := slog.New(slog.NewTextHandler(stderr, nil))
 
-	// Parse flags
-	deleteStatements := flag.Bool("deleteStatements", false, "Add delete statements to SQL output")
-	outputFolderPath := flag.String("outputFolder", "", "Path to output folder")
+	// load an OpenAPI 3.1 specification from bytes
+	openAPISpec, err := os.ReadFile(specPath)
+	if err != nil {
+		return fmt.Errorf("cannot read %s: %w", specPath, err)
+	}
+
+	// Parse the OpenAPI specification
+	doc, err := parseOpenAPISpec(ctx, logger, openAPISpec)
+	if err != nil {
+		return err
+	}
+
+	// Generate SQL statement based on the OpenAPI spec
+	ddl, skipped, err := fromComponentsToSQL(dbSchema.NewDialect(), doc, flags)
+	if err != nil {
+		return err
+	}
+
+	// A schema that could not become a table costs that schema alone, but the
+	// user still has to be told which ones went missing.
+	for _, problem := range skipped {
+		_, _ = fmt.Fprintf(stderr, "skipped: %v\n", problem)
+	}
+
+	if flags.outputFolderPath != "" {
+		return writeInFolder(stdout, ddl, flags)
+	}
+
+	_, _ = fmt.Fprintln(stdout, "Generated SQL Statement:", ddl)
+
+	return nil
+}
+
+// parseArgs reads the command line into Flags and the path of the spec to
+// read. It returns flag.ErrHelp unwrapped when the user asked for usage.
+func parseArgs(args []string, stderr io.Writer) (Flags, string, error) {
+	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
+	fs.SetOutput(stderr)
+
+	deleteStatements := fs.Bool(
+		"deleteStatements", false, "Add delete statements to SQL output")
+	outputFolderPath := fs.String(
+		"outputFolder", "", "Path to output folder")
+
+	if err := fs.Parse(args[1:]); err != nil {
+		return Flags{}, "", fmt.Errorf("%w: %w", errUsage, err)
+	}
+
+	if fs.NArg() < 1 {
+		_, _ = fmt.Fprintf(stderr,
+			"usage: %s [flags] <path to OpenAPI or JSON Schema file>\n", args[0])
+		fs.PrintDefaults()
+
+		return Flags{}, "", fmt.Errorf("%w: %w", errUsage, errNoSpecPath)
+	}
 
 	flags := Flags{
 		deleteStatements: *deleteStatements,
 		outputFolderPath: *outputFolderPath,
 	}
 
-	// load an OpenAPI 3.1 specification from bytes
-	openAPISpec, err := os.ReadFile(filePath)
-	if err != nil {
-		fmt.Printf("Failed to read OpenAPI spec: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Parse the OpenAPI specification
-	doc, err := parseOpenAPISpec(openAPISpec)
-	if err != nil {
-		fmt.Printf("Failed to parse OpenAPI spec: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Generate SQL statement based on the OpenAPI spec
-	DDLSQLStatement, err := fromComponentsToSQL(doc.Components, flags)
-	if err != nil {
-		fmt.Printf("Failed to generate SQL: %v\n", err)
-		os.Exit(1)
-	}
-
-	PathSQLStatements, err := fromComponentPathToSQL(doc.Paths, flags)
-	if err != nil {
-		fmt.Printf("Failed to generate SQL: %v\n", err)
-		os.Exit(1)
-	}
-
-	if flags.outputFolderPath != "" {
-		err := writeInFolder(DDLSQLStatement, flags)
-		if err != nil {
-			os.Exit(1)
-		}
-	} else {
-		fmt.Println("Generated SQL Statement:", DDLSQLStatement)
-		fmt.Print("\n\n")
-		fmt.Println("Generated Path SQL Statements:", PathSQLStatements)
-	}
+	return flags, fs.Arg(0), nil
 }

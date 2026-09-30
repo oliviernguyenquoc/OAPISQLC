@@ -1,0 +1,14 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: product.json
+type: object
+properties:
+  id:
+    type: integer
+    format: int64
+  name:
+    type: string
+  homepage:
+    type: string
+    format: uri
+required:
+  - name

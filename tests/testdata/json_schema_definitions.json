@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "store.json",
+  "title": "Store",
+  "type": "object",
+  "definitions": {
+    "Item": {
+      "type": "object",
+      "properties": {
+        "sourcedId": { "type": "string" },
+        "homepage": { "type": "string", "format": "uri" },
+        "kind": {
+          "anyOf": [
+            { "type": "string", "enum": ["physical", "digital"] },
+            { "type": "string", "pattern": "(ext:)[a-z]+" }
+          ]
+        },
+        "owner": {
+          "$ref": "#/definitions/Owner",
+          "description": "a reference carrying a sibling keyword"
+        }
+      },
+      "required": ["sourcedId"]
+    },
+    "Owner": {
+      "type": "object",
+      "properties": { "name": { "type": "string" } }
+    }
+  },
+  "properties": { "items": { "$ref": "#/definitions/Item" } }
+}

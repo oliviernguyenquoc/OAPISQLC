@@ -1,0 +1,1190 @@
+{
+  "$id": "getRoster-200-responsepayload-schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "AcadSessionGUIDRefDType": {
+      "additionalProperties": false,
+      "description": "This is the container for reference to a OneRoster 'Academic Session' object that has an allocated sourcedId (GUID).",
+      "properties": {
+        "href": {
+          "description": "Model Primitive Datatype = AnyURI. The URI for the type of object being referenced.",
+          "format": "uri",
+          "type": "string"
+        },
+        "sourcedId": {
+          "description": "Model Primitive Datatype = String. The globally unique identifier of the object being referenced.",
+          "type": "string"
+        },
+        "type": {
+          "description": "The type of object being referenced i.e. an 'academicSession'.",
+          "enum": [
+            "academicSession"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "href",
+        "sourcedId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "AcademicSessionDType": {
+      "additionalProperties": false,
+      "description": "The container for an academicSession. An academicSession represents a duration of time. Typically they are used to describe terms, grading periods, and other durations e.g. school years. Term is used to describe a period of time during which learning will take place. Other words for term could be in common use around the world e.g. Semester. The important thing is that Term is a unit of time, often many weeks long, into which classes are scheduled. Grading Period is used to represent another unit of time, that within which line items are assessed. A term may have many grading periods, a grading period belongs to a single term. A class may be assessed over several grade periods (represented by a line item being connected to a grading period). The parent / child attributes of academic sessions allow terms to be connected to their grading periods and vice-versa. ",
+      "properties": {
+        "children": {
+          "description": "The set of links to the child AcademicSessions i.e. a set of AcademicSession 'sourcedIds'.",
+          "items": {
+            "$ref": "#/definitions/AcadSessionGUIDRefDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "dateLastModified": {
+          "description": "Model Primitive Datatype = DateTime. All objects MUST be annotated with the dateTime upon which they were last modified. This enables requesters to query for just the latest objects. DateTimes MUST be expressed in W3C profile of [ISO 8601] and MUST contain the UTC timezone.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "endDate": {
+          "description": "Model Primitive Datatype = Date. The end date for the academic session. The end date is excluded from the academic session. This is in [ISO 8601] format of 'YYYY-MM-DD'.",
+          "format": "date",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/MetadataDType",
+          "description": "All objects CAN be extended using the Metadata class. This specification is silent on what implementers may consider to be appropriate extensions. The form of the extension is dependent on the binding technology being used."
+        },
+        "parent": {
+          "$ref": "#/definitions/AcadSessionGUIDRefDType",
+          "description": "The link to parent AcademicSession i.e. an AcademicSession 'sourcedId'."
+        },
+        "schoolYear": {
+          "description": "Model Primitive Datatype = NormalizedString. The school year for the academic session.  This year should include the school year end e.g. 2014. This is in the [ISO 8601] format of 'YYYY'.",
+          "type": "string"
+        },
+        "sourcedId": {
+          "description": "Model Primitive Datatype = String. The sourcedId of the object. All objects MUST be identified by a Source Identifier. This is a GUID  System ID for an object. This is the GUID that SYSTEMS will refer to when making API calls, or when needing to identify an object. It is RECOMMENDED that systems are able to map whichever local ids (e.g. database key fields) they use to SourcedId.  The sourcedId of an object is considered an addressable property of an entity and as such will not be treated as Personally Identifiable Information (PII) by certified products.  Therefore, as a part of certification, vendors will be required to declare that they will notify customers via documentation or other formal and documented agreement that sourcedIds should never contain PII in general, but particularly users. This means that if a customer includes a student name in an enrollment.sourcedId, it will not fall to any certified product to protect the enrollment.sourcedId as PII, or even the userSourcedId field in the enrollment record.",
+          "type": "string"
+        },
+        "startDate": {
+          "description": "Model Primitive Datatype = Date. The start date for the academic session. The start date is included in the academic session. This is in [ISO 8601] format of 'YYYY-MM-DD'.",
+          "format": "date",
+          "type": "string"
+        },
+        "status": {
+          "description": "All objects MUST BE either 'active' or 'tobedeleted'.  Something which is flagged 'tobedeleted' is to be considered safe to delete. Systems can delete records that are flagged as such if they wish, but they are not under any compulsion to do so. In v1.1 the enumeration value of 'inactive' was removed and so for backwards compatibility all such marked objects should be interpreted as 'tobedeleted'.",
+          "enum": [
+            "active",
+            "tobedeleted"
+          ],
+          "type": "string"
+        },
+        "title": {
+          "description": "Model Primitive Datatype = NormalizedString. The title/label for the academic session.",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "gradingPeriod",
+                "semester",
+                "schoolYear",
+                "term"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Model Primitive Datatype = NormalizedString.",
+              "pattern": "(ext:)[a-zA-Z0-9\\.\\-_]+",
+              "type": "string"
+            }
+          ],
+          "description": "The type of academic session. This is based upon an enumerated vocabulary."
+        }
+      },
+      "required": [
+        "sourcedId",
+        "status",
+        "dateLastModified",
+        "title",
+        "startDate",
+        "endDate",
+        "type",
+        "schoolYear"
+      ],
+      "type": "object"
+    },
+    "ClassDType": {
+      "additionalProperties": false,
+      "description": "A class is an instance of a course, onto which students and teachers are enrolled. A class is typically held within a term.",
+      "properties": {
+        "classCode": {
+          "description": "Model Primitive Datatype = NormalizedString. The class code.",
+          "type": "string"
+        },
+        "classType": {
+          "anyOf": [
+            {
+              "enum": [
+                "homeroom",
+                "scheduled"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Model Primitive Datatype = NormalizedString.",
+              "pattern": "(ext:)[a-zA-Z0-9\\.\\-_]+",
+              "type": "string"
+            }
+          ],
+          "description": "The type of class. This is based upon an enumerated vocabulary."
+        },
+        "course": {
+          "$ref": "#/definitions/CourseGUIDRefDType",
+          "description": "The link to the associated course i.e. the Course 'sourcedId'."
+        },
+        "dateLastModified": {
+          "description": "Model Primitive Datatype = DateTime. All objects MUST be annotated with the dateTime upon which they were last modified. This enables requesters to query for just the latest objects. DateTimes MUST be expressed in W3C profile of [ISO 8601] and MUST contain the UTC timezone.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "grades": {
+          "description": "Model Primitive Datatype = NormalizedString. The grade(s) who attend the class. The permitted vocabulary should be defined as part of the adoption and deployment process. See the Implementation Guide [OR-IMPL-12] for more details on how to define/use such a vocabulary.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "location": {
+          "description": "Model Primitive Datatype = NormalizedString. The location for the class e.g. 'Room 19'.",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/MetadataDType",
+          "description": "All objects CAN be extended using the Metadata class. This specification is silent on what implementers may consider to be appropriate extensions. The form of the extension is dependent on the binding technology being used."
+        },
+        "periods": {
+          "description": "Model Primitive Datatype = NormalizedString. The time slots in the day that the class will be given. Examples are 1 or a list of 1, 3, 5, etc.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "resources": {
+          "description": "The links to the set of associated resources i.e. the Resource 'sourcedIds'.",
+          "items": {
+            "$ref": "#/definitions/ResourceGUIDRefDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "school": {
+          "$ref": "#/definitions/OrgGUIDRefDType",
+          "description": "The link to the associated school i.e. the School 'sourcedId'."
+        },
+        "sourcedId": {
+          "description": "Model Primitive Datatype = String. The sourcedId of the object. All objects MUST be identified by a Source Identifier. This is a GUID  System ID for an object. This is the GUID that SYSTEMS will refer to when making API calls, or when needing to identify an object. It is RECOMMENDED that systems are able to map whichever local ids (e.g. database key fields) they use to SourcedId.  The sourcedId of an object is considered an addressable property of an entity and as such will not be treated as Personally Identifiable Information (PII) by certified products.  Therefore, as a part of certification, vendors will be required to declare that they will notify customers via documentation or other formal and documented agreement that sourcedIds should never contain PII in general, but particularly users. This means that if a customer includes a student name in an enrollment.sourcedId, it will not fall to any certified product to protect the enrollment.sourcedId as PII, or even the userSourcedId field in the enrollment record.",
+          "type": "string"
+        },
+        "status": {
+          "description": "All objects MUST BE either 'active' or 'tobedeleted'.  Something which is flagged 'tobedeleted' is to be considered safe to delete. Systems can delete records that are flagged as such if they wish, but they are not under any compulsion to do so. In v1.1 the enumeration value of 'inactive' was removed and so for backwards compatibility all such marked objects should be interpreted as 'tobedeleted'.",
+          "enum": [
+            "active",
+            "tobedeleted"
+          ],
+          "type": "string"
+        },
+        "subjectCodes": {
+          "description": "Model Primitive Datatype = NormalizedString. This is a machine readable set of codes and the number should match the associated 'subjects' attribute. The vocabulary for this characteristic should be defined as part of the local addition of this specification (see the Implementation Guide [OR-IMPL-12] for more details).",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "subjects": {
+          "description": "Model Primitive Datatype = NormalizedString. The set of subjects addressed by this class e.g. 'chemistry'.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "terms": {
+          "description": "The links to the set of terms or semesters (academicSession) i.e. the set of 'sourcedIds' for the terms within the associated school year.",
+          "items": {
+            "$ref": "#/definitions/AcadSessionGUIDRefDType"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "title": {
+          "description": "Model Primitive Datatype = NormalizedString. The tile/label for the class.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourcedId",
+        "status",
+        "dateLastModified",
+        "title",
+        "course",
+        "school",
+        "terms"
+      ],
+      "type": "object"
+    },
+    "ClassGUIDRefDType": {
+      "additionalProperties": false,
+      "description": "This is the container for reference to a OneRoster 'Class' object that has an allocated sourcedId (GUID).",
+      "properties": {
+        "href": {
+          "description": "Model Primitive Datatype = AnyURI. The URI for the type of object being referenced.",
+          "format": "uri",
+          "type": "string"
+        },
+        "sourcedId": {
+          "description": "Model Primitive Datatype = String. The globally unique identifier of the object being referenced.",
+          "type": "string"
+        },
+        "type": {
+          "description": "The type of object being referenced i.e. a 'class'.",
+          "enum": [
+            "class"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "href",
+        "sourcedId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CourseDType": {
+      "additionalProperties": false,
+      "description": "The information about a course. A Course is a course of study that, typically, has a shared curriculum although it may be taught to different students by different teachers. It is likely that several classes of a single course may be taught in a term. For example, a school runs Grade 9 English in the spring term. There are four classes, each with a different 30 students, taught by 4 different teachers. However the curriculum for each of those four classes is the same i.e. the course curriculum.",
+      "properties": {
+        "courseCode": {
+          "description": "Model Primitive Datatype = NormalizedString. The assigned course code.",
+          "type": "string"
+        },
+        "dateLastModified": {
+          "description": "Model Primitive Datatype = DateTime. All objects MUST be annotated with the dateTime upon which they were last modified. This enables requesters to query for just the latest objects. DateTimes MUST be expressed in W3C profile of [ISO 8601] and MUST contain the UTC timezone.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "grades": {
+          "description": "Model Primitive Datatype = NormalizedString. Grade(s) for which the class is attended. The permitted vocabulary should be defined as part of the adoption and deployment process. See the Implementation Guide [OR-IMPL-12] for more details on how to define/use such a vocabulary.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "metadata": {
+          "$ref": "#/definitions/MetadataDType",
+          "description": "All objects CAN be extended using the Metadata class. This specification is silent on what implementers may consider to be appropriate extensions. The form of the extension is dependent on the binding technology being used."
+        },
+        "org": {
+          "$ref": "#/definitions/OrgGUIDRefDType",
+          "description": "The link to org i.e. the 'sourcedId' of the org."
+        },
+        "resources": {
+          "description": "The links to the associated resources if applicable i.e. the resource 'sourcedIds'.",
+          "items": {
+            "$ref": "#/definitions/ResourceGUIDRefDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "schoolYear": {
+          "$ref": "#/definitions/AcadSessionGUIDRefDType",
+          "description": "The link to academicSession i.e. the AcademicSession 'sourcedId'."
+        },
+        "sourcedId": {
+          "description": "Model Primitive Datatype = String. The sourcedId of the object. All objects MUST be identified by a Source Identifier. This is a GUID  System ID for an object. This is the GUID that SYSTEMS will refer to when making API calls, or when needing to identify an object. It is RECOMMENDED that systems are able to map whichever local ids (e.g. database key fields) they use to SourcedId.  The sourcedId of an object is considered an addressable property of an entity and as such will not be treated as Personally Identifiable Information (PII) by certified products.  Therefore, as a part of certification, vendors will be required to declare that they will notify customers via documentation or other formal and documented agreement that sourcedIds should never contain PII in general, but particularly users. This means that if a customer includes a student name in an enrollment.sourcedId, it will not fall to any certified product to protect the enrollment.sourcedId as PII, or even the userSourcedId field in the enrollment record.",
+          "type": "string"
+        },
+        "status": {
+          "description": "All objects MUST BE either 'active' or 'tobedeleted'.  Something which is flagged 'tobedeleted' is to be considered safe to delete. Systems can delete records that are flagged as such if they wish, but they are not under any compulsion to do so. In v1.1 the enumeration value of 'inactive' was removed and so for backwards compatibility all such marked objects should be interpreted as 'tobedeleted'.",
+          "enum": [
+            "active",
+            "tobedeleted"
+          ],
+          "type": "string"
+        },
+        "subjectCodes": {
+          "description": "Model Primitive Datatype = NormalizedString. This is a machine readable set of codes and the number should match the associated 'subjects' attribute. The vocabulary for this characteristic should be defined as part of the local addition of this specification (see the Implementation Guide [OR-IMPL-12] for more details).",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "subjects": {
+          "description": "Model Primitive Datatype = NormalizedString. The set of subjects addresse by this course. This is a set of human readable strings.  ",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "title": {
+          "description": "Model Primitive Datatype = NormalizedString. The title of the course.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourcedId",
+        "status",
+        "dateLastModified",
+        "title",
+        "courseCode"
+      ],
+      "type": "object"
+    },
+    "CourseGUIDRefDType": {
+      "additionalProperties": false,
+      "description": "This is the container for reference to a OneRoster 'Course' object that has an allocated sourcedId (GUID).",
+      "properties": {
+        "href": {
+          "description": "Model Primitive Datatype = AnyURI. The URI for the type of object being referenced.",
+          "format": "uri",
+          "type": "string"
+        },
+        "sourcedId": {
+          "description": "Model Primitive Datatype = String. The globally unique identifier of the object being referenced.",
+          "type": "string"
+        },
+        "type": {
+          "description": "The type of object being referenced i.e. a 'course'.",
+          "enum": [
+            "course"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "href",
+        "sourcedId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "CredentialDType": {
+      "additionalProperties": true,
+      "description": "The container for a single set of credentials for an account.",
+      "patternProperties": {
+        "^[^:][^:]*:[^:][^:]*$": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "properties": {
+        "password": {
+          "description": "Model Primitive Datatype = String. The password in this set of credentials.  Care should be taken to ensure that no unencrypted value is revealed.",
+          "type": "string"
+        },
+        "type": {
+          "description": "Model Primitive Datatype = String. The type of credentials for the profile. This should be indicative of when this specific credential should be used.",
+          "type": "string"
+        },
+        "username": {
+          "description": "Model Primitive Datatype = NormalizedString. The username.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "username"
+      ],
+      "type": "object"
+    },
+    "DemographicsDType": {
+      "additionalProperties": false,
+      "description": "Demographics information is taken from the Common Educational Data Standards (CEDS) from the US government. (http://ceds.ed.gov). Note that demographics data is held in its own service, and that access to this service is considered privileged. Not all consumer keys will be able to request demographics data.",
+      "properties": {
+        "americanIndianOrAlaskaNative": {
+          "description": "Identification of whether or not the user is an American Indian or Alaska Native ethnicity.",
+          "enum": [
+            "true",
+            "false"
+          ],
+          "type": "string"
+        },
+        "asian": {
+          "description": "Identification of whether or not the user is of Asian ethnicity.",
+          "enum": [
+            "true",
+            "false"
+          ],
+          "type": "string"
+        },
+        "birthDate": {
+          "description": "Model Primitive Datatype = Date. the date of birth. The format is [ISO 8601] of 'YYYY-MM-DD'.",
+          "format": "date",
+          "type": "string"
+        },
+        "blackOrAfricanAmerican": {
+          "description": "Identification of whether or not the user is black or African American ethnicity.",
+          "enum": [
+            "true",
+            "false"
+          ],
+          "type": "string"
+        },
+        "cityOfBirth": {
+          "description": "Model Primitive Datatype = NormalizedString. The name of the city in which the user was born.",
+          "type": "string"
+        },
+        "countryOfBirthCode": {
+          "description": "Model Primitive Datatype = NormalizedString. The country of birth code. The permitted vocabulary should be defined as part of the adoption and deployment process. See the Implementation Guide [OR-IMPL-12] for more details on how to define/use such a vocabulary.",
+          "type": "string"
+        },
+        "dateLastModified": {
+          "description": "Model Primitive Datatype = DateTime. All objects MUST be annotated with the dateTime upon which they were last modified. This enables requesters to query for just the latest objects. DateTimes MUST be expressed in W3C profile of [ISO 8601] and MUST contain the UTC timezone.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "demographicRaceTwoOrMoreRaces": {
+          "description": "Identification of whether or not the user has a demographic of two or more race ethnicities.",
+          "enum": [
+            "true",
+            "false"
+          ],
+          "type": "string"
+        },
+        "hispanicOrLatinoEthnicity": {
+          "description": "Identification of whether or not the user is Hispanic or of Latino ethnicity.",
+          "enum": [
+            "true",
+            "false"
+          ],
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/MetadataDType",
+          "description": "All objects CAN be extended using the Metadata class. This specification is silent on what implementers may consider to be appropriate extensions. The form of the extension is dependent on the binding technology being used."
+        },
+        "nativeHawaiianOrOtherPacificIslander": {
+          "description": "Identification of whether or not the user is Native Hawaiian or Other Pacific Islander ethnicity.",
+          "enum": [
+            "true",
+            "false"
+          ],
+          "type": "string"
+        },
+        "publicSchoolResidenceStatus": {
+          "description": "Model Primitive Datatype = NormalizedString. An indication of the location of a person's legal residence relative to (within or outside) the boundaries of the public school attended and its administrative unit. The permitted vocabulary should be defined as part of the adoption and deployment process. See the Implementation Guide [OR-IMPL-12] for more details on how to define/use such a vocabulary.",
+          "type": "string"
+        },
+        "sex": {
+          "anyOf": [
+            {
+              "enum": [
+                "male",
+                "female",
+                "unspecified",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Model Primitive Datatype = NormalizedString.",
+              "pattern": "(ext:)[a-zA-Z0-9\\.\\-_]+",
+              "type": "string"
+            }
+          ],
+          "description": "The sex of the individual. The permitted values are from an enumerated list."
+        },
+        "sourcedId": {
+          "description": "Model Primitive Datatype = String. The sourcedId of the object. All objects MUST be identified by a Source Identifier. This is a GUID  System ID for an object. This is the GUID that SYSTEMS will refer to when making API calls, or when needing to identify an object. It is RECOMMENDED that systems are able to map whichever local ids (e.g. database key fields) they use to SourcedId.  The sourcedId of an object is considered an addressable property of an entity and as such will not be treated as Personally Identifiable Information (PII) by certified products.  Therefore, as a part of certification, vendors will be required to declare that they will notify customers via documentation or other formal and documented agreement that sourcedIds should never contain PII in general, but particularly users. This means that if a customer includes a student name in an enrollment.sourcedId, it will not fall to any certified product to protect the enrollment.sourcedId as PII, or even the userSourcedId field in the enrollment record.",
+          "type": "string"
+        },
+        "stateOfBirthAbbreviation": {
+          "description": "Model Primitive Datatype = NormalizedString. The abbreviation for the name of the state (within the United States) or extra-state jurisdiction in which a person was born. The permitted vocabulary should be defined as part of the adoption and deployment process. See the Implementation Guide [OR-IMPL-12] for more details on how to define/use such a vocabulary.",
+          "type": "string"
+        },
+        "status": {
+          "description": "All objects MUST BE either 'active' or 'tobedeleted'.  Something which is flagged 'tobedeleted' is to be considered safe to delete. Systems can delete records that are flagged as such if they wish, but they are not under any compulsion to do so. In v1.1 the enumeration value of 'inactive' was removed and so for backwards compatibility all such marked objects should be interpreted as 'tobedeleted'.",
+          "enum": [
+            "active",
+            "tobedeleted"
+          ],
+          "type": "string"
+        },
+        "white": {
+          "description": "Identification of whether or not the user is of white ethnicity.",
+          "enum": [
+            "true",
+            "false"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourcedId",
+        "status",
+        "dateLastModified"
+      ],
+      "type": "object"
+    },
+    "EnrollmentDType": {
+      "additionalProperties": false,
+      "description": "An enrollment is the name given to an individual taking part in a class. In the vast majority of cases, users will be students learning in a class, or teachers teaching the class. Other roles are also possible.",
+      "properties": {
+        "beginDate": {
+          "description": "Model Primitive Datatype = Date. The start date for the enrollment (inclusive). This date must be within the period of the associated Academic Session for the class (Term/Semester/SchoolYear). Use the [ISO 8601] format of 'YYYY-MM-DD'.",
+          "format": "date",
+          "type": "string"
+        },
+        "class": {
+          "$ref": "#/definitions/ClassGUIDRefDType",
+          "description": "The link to the class on which the user is enrolled i.e. the Class 'sourcedId'."
+        },
+        "dateLastModified": {
+          "description": "Model Primitive Datatype = DateTime. All objects MUST be annotated with the dateTime upon which they were last modified. This enables requesters to query for just the latest objects. DateTimes MUST be expressed in W3C profile of [ISO 8601] and MUST contain the UTC timezone.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "endDate": {
+          "description": "Model Primitive Datatype = Date. The end date for the enrollment (exclusive).  This date must be within the period of the associated Academic Session for the class (Term/Semester/SchoolYear). Use the [ISO 8601] format of 'YYYY-MM-DD'.",
+          "format": "date",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/MetadataDType",
+          "description": "All objects CAN be extended using the Metadata class. This specification is silent on what implementers may consider to be appropriate extensions. The form of the extension is dependent on the binding technology being used."
+        },
+        "primary": {
+          "description": "Applicable only to teachers. Only one teacher should be designated as the primary teacher for a class (this value set as 'true') in the period defined by the begin/end dates.",
+          "enum": [
+            "true",
+            "false"
+          ],
+          "type": "string"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "enum": [
+                "administrator",
+                "proctor",
+                "student",
+                "teacher"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Model Primitive Datatype = NormalizedString.",
+              "pattern": "(ext:)[a-zA-Z0-9\\.\\-_]+",
+              "type": "string"
+            }
+          ],
+          "description": "The role of the user for this class in the school e.g teacher, student, etc. This is from an enumerated vocabulary."
+        },
+        "school": {
+          "$ref": "#/definitions/OrgGUIDRefDType",
+          "description": "The link to the school at which the class is being provided i.e. an Org 'sourcedId'."
+        },
+        "sourcedId": {
+          "description": "Model Primitive Datatype = String. The sourcedId of the object. All objects MUST be identified by a Source Identifier. This is a GUID  System ID for an object. This is the GUID that SYSTEMS will refer to when making API calls, or when needing to identify an object. It is RECOMMENDED that systems are able to map whichever local ids (e.g. database key fields) they use to SourcedId.  The sourcedId of an object is considered an addressable property of an entity and as such will not be treated as Personally Identifiable Information (PII) by certified products.  Therefore, as a part of certification, vendors will be required to declare that they will notify customers via documentation or other formal and documented agreement that sourcedIds should never contain PII in general, but particularly users. This means that if a customer includes a student name in an enrollment.sourcedId, it will not fall to any certified product to protect the enrollment.sourcedId as PII, or even the userSourcedId field in the enrollment record.",
+          "type": "string"
+        },
+        "status": {
+          "description": "All objects MUST BE either 'active' or 'tobedeleted'.  Something which is flagged 'tobedeleted' is to be considered safe to delete. Systems can delete records that are flagged as such if they wish, but they are not under any compulsion to do so. In v1.1 the enumeration value of 'inactive' was removed and so for backwards compatibility all such marked objects should be interpreted as 'tobedeleted'.",
+          "enum": [
+            "active",
+            "tobedeleted"
+          ],
+          "type": "string"
+        },
+        "user": {
+          "$ref": "#/definitions/UserGUIDRefDType",
+          "description": "The link to the enrolled User i.e. the User 'sourcedId'."
+        }
+      },
+      "required": [
+        "sourcedId",
+        "status",
+        "dateLastModified",
+        "user",
+        "class",
+        "school",
+        "role"
+      ],
+      "type": "object"
+    },
+    "MetadataDType": {
+      "additionalProperties": true,
+      "description": "The container for the proprietary extensions.",
+      "patternProperties": {
+        "^[^:][^:]*:[^:][^:]*$": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "properties": {},
+      "type": "object"
+    },
+    "OrgDType": {
+      "additionalProperties": false,
+      "description": "ORG is defined here as a structure for holding organizational information. An ORG might be a school, or it might be a local, statewide, or national entity. ORGs will typically have a parent ORG (up to the national level), and children, allowing a hierarchy to be established. School is defined here as the place where the learning happens. Most commonly this is the data that describes a bricks and mortar building, or, in the case of a virtual school, the virtual school organization. For enrollment and result reporting purposes, little information about this organization is required. A common example of a local organization is a school district.",
+      "properties": {
+        "children": {
+          "description": "The 'sourcedIds' for the set of child organizations.",
+          "items": {
+            "$ref": "#/definitions/OrgGUIDRefDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "dateLastModified": {
+          "description": "Model Primitive Datatype = DateTime. All objects MUST be annotated with the dateTime upon which they were last modified. This enables requesters to query for just the latest objects. DateTimes MUST be expressed in W3C profile of [ISO 8601] and MUST contain the UTC timezone.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "identifier": {
+          "description": "Model Primitive Datatype = String. Human readable identifier for this org e.g. NCES ID.",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/MetadataDType",
+          "description": "All objects CAN be extended using the Metadata class. This specification is silent on what implementers may consider to be appropriate extensions. The form of the extension is dependent on the binding technology being used."
+        },
+        "name": {
+          "description": "Model Primitive Datatype = NormalizedString. The name of the organization.",
+          "type": "string"
+        },
+        "parent": {
+          "$ref": "#/definitions/OrgGUIDRefDType",
+          "description": "The 'sourcedId' of the parent organization."
+        },
+        "sourcedId": {
+          "description": "Model Primitive Datatype = String. The sourcedId of the object. All objects MUST be identified by a Source Identifier. This is a GUID  System ID for an object. This is the GUID that SYSTEMS will refer to when making API calls, or when needing to identify an object. It is RECOMMENDED that systems are able to map whichever local ids (e.g. database key fields) they use to SourcedId.  The sourcedId of an object is considered an addressable property of an entity and as such will not be treated as Personally Identifiable Information (PII) by certified products.  Therefore, as a part of certification, vendors will be required to declare that they will notify customers via documentation or other formal and documented agreement that sourcedIds should never contain PII in general, but particularly users. This means that if a customer includes a student name in an enrollment.sourcedId, it will not fall to any certified product to protect the enrollment.sourcedId as PII, or even the userSourcedId field in the enrollment record.",
+          "type": "string"
+        },
+        "status": {
+          "description": "All objects MUST BE either 'active' or 'tobedeleted'.  Something which is flagged 'tobedeleted' is to be considered safe to delete. Systems can delete records that are flagged as such if they wish, but they are not under any compulsion to do so. In v1.1 the enumeration value of 'inactive' was removed and so for backwards compatibility all such marked objects should be interpreted as 'tobedeleted'.",
+          "enum": [
+            "active",
+            "tobedeleted"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "enum": [
+                "department",
+                "district",
+                "local",
+                "national",
+                "school",
+                "state"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Model Primitive Datatype = NormalizedString.",
+              "pattern": "(ext:)[a-zA-Z0-9\\.\\-_]+",
+              "type": "string"
+            }
+          ],
+          "description": "The type of organization. This uses a predefined vocabulary."
+        }
+      },
+      "required": [
+        "sourcedId",
+        "status",
+        "dateLastModified",
+        "name",
+        "type",
+        "identifier"
+      ],
+      "type": "object"
+    },
+    "OrgGUIDRefDType": {
+      "additionalProperties": false,
+      "description": "This is the container for reference to a OneRoster 'Org' object that has an allocated sourcedId (GUID).",
+      "properties": {
+        "href": {
+          "description": "Model Primitive Datatype = AnyURI. The URI for the type of object being referenced.",
+          "format": "uri",
+          "type": "string"
+        },
+        "sourcedId": {
+          "description": "Model Primitive Datatype = String. The globally unique identifier of the object being referenced.",
+          "type": "string"
+        },
+        "type": {
+          "description": "The type of object being referenced i.e. an 'org'.",
+          "enum": [
+            "org"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "href",
+        "sourcedId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ResourceGUIDRefDType": {
+      "additionalProperties": false,
+      "description": "This is the container for reference to a OneRoster 'Resource' object that has an allocated sourcedId (GUID).",
+      "properties": {
+        "href": {
+          "description": "Model Primitive Datatype = AnyURI. The URI for the type of object being referenced.",
+          "format": "uri",
+          "type": "string"
+        },
+        "sourcedId": {
+          "description": "Model Primitive Datatype = String. The globally unique identifier of the object being referenced.",
+          "type": "string"
+        },
+        "type": {
+          "description": "The type of object being referenced i.e. a 'resource'.",
+          "enum": [
+            "resource"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "href",
+        "sourcedId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "RoleDType": {
+      "additionalProperties": false,
+      "description": "The container for one mapping between a role and an org for the user.",
+      "properties": {
+        "beginDate": {
+          "description": "Model Primitive Datatype = Date. The start date on which the role becomes active (inclusive). ",
+          "format": "date",
+          "type": "string"
+        },
+        "endDate": {
+          "description": "Model Primitive Datatype = Date. The end date on which the role becomes inactive (exclusive). ",
+          "format": "date",
+          "type": "string"
+        },
+        "org": {
+          "$ref": "#/definitions/OrgGUIDRefDType",
+          "description": "The link to the associated org i.e. the 'sourcedId' for the org."
+        },
+        "role": {
+          "anyOf": [
+            {
+              "enum": [
+                "aide",
+                "counselor",
+                "districtAdministrator",
+                "guardian",
+                "parent",
+                "principal",
+                "proctor",
+                "relative",
+                "siteAdministrator",
+                "student",
+                "systemAdministrator",
+                "teacher"
+              ],
+              "type": "string"
+            },
+            {
+              "description": "Model Primitive Datatype = NormalizedString.",
+              "pattern": "(ext:)[a-zA-Z0-9\\.\\-_]+",
+              "type": "string"
+            }
+          ],
+          "description": "The role of the user in the org. The permitted values are from an enumerated list. "
+        },
+        "roleType": {
+          "description": "Indicates if this role is the primary or secondary role for that org. There MUST be one, and only one, primary role for each org.",
+          "enum": [
+            "primary",
+            "secondary"
+          ],
+          "type": "string"
+        },
+        "userProfile": {
+          "description": "Model Primitive Datatype = AnyURI. The identifier for the system/tool/app access account that is relevant to this role in the org. The equivalent UserProfile should exist with a 'profileId' equal to this identifier value.",
+          "format": "uri",
+          "type": "string"
+        }
+      },
+      "required": [
+        "roleType",
+        "role",
+        "org"
+      ],
+      "type": "object"
+    },
+    "RosterDType": {
+      "additionalProperties": false,
+      "description": "A composite container for all OneRoster v1.2 rostering collections returned in a single response.",
+      "properties": {
+        "academicSessions": {
+          "description": "The collection of academicSession instances (includes terms, grading periods, and school years). The order is not significant.",
+          "items": {
+            "$ref": "#/definitions/AcademicSessionDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "classes": {
+          "description": "The collection of class instances. The order is not significant.",
+          "items": {
+            "$ref": "#/definitions/ClassDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "courses": {
+          "description": "The collection of course instances. The order is not significant.",
+          "items": {
+            "$ref": "#/definitions/CourseDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "demographics": {
+          "description": "The collection of demographics instances. The order is not significant.",
+          "items": {
+            "$ref": "#/definitions/DemographicsDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "enrollments": {
+          "description": "The collection of enrollment instances. The order is not significant.",
+          "items": {
+            "$ref": "#/definitions/EnrollmentDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "orgs": {
+          "description": "The collection of org instances (includes schools and other organizations). The order is not significant.",
+          "items": {
+            "$ref": "#/definitions/OrgDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "users": {
+          "description": "The collection of user instances (includes students, teachers, and all other user roles). The order is not significant.",
+          "items": {
+            "$ref": "#/definitions/UserDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "UserDType": {
+      "additionalProperties": false,
+      "description": "Users, Teachers and Students are human beings that are teaching or studying in a class respectively. A single User class is used to represent both teachers and students and a role property is used to distinguish a user's natural role.Humans may have relationships with other humans. For example, a student may have parents. The 'agents' attribute allows for relationships between humans to be expressed. Note that these are typically from the point of view of the student - so a student will link to its parents (via the agent attribute). The reverse view MUST also be modeled, so for example, a user of role 'parent' MUST have agents that are of type 'student'. Note: Teachers MUST NOT be set as agents of students i.e. the teaching relationship is covered via enrollments. ",
+      "properties": {
+        "agents": {
+          "description": "The links to other people i.e. User 'sourcedIds'.",
+          "items": {
+            "$ref": "#/definitions/UserGUIDRefDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "dateLastModified": {
+          "description": "Model Primitive Datatype = DateTime. All objects MUST be annotated with the dateTime upon which they were last modified. This enables requesters to query for just the latest objects. DateTimes MUST be expressed in W3C profile of [ISO 8601] and MUST contain the UTC timezone.",
+          "format": "date-time",
+          "type": "string"
+        },
+        "email": {
+          "description": "Model Primitive Datatype = NormalizedString. The email address for the user.",
+          "type": "string"
+        },
+        "enabledUser": {
+          "description": "This is used to determine whether or not the record is active in the local system. 'false' denotes that the record is active but system access is curtailed according to the local administration rules.",
+          "enum": [
+            "true",
+            "false"
+          ],
+          "type": "string"
+        },
+        "familyName": {
+          "description": "Model Primitive Datatype = NormalizedString. The family name. Also, known as the last name.",
+          "type": "string"
+        },
+        "givenName": {
+          "description": "Model Primitive Datatype = NormalizedString. The given name. Also, known as the first name.",
+          "type": "string"
+        },
+        "grades": {
+          "description": "Model Primitive Datatype = NormalizedString. Grade(s) for which a user with role 'student' is enrolled. The permitted vocabulary should be defined as part of the adoption and deployment process. See the Implementation Guide [OR-IMPL-12] for more details on how to define/use such a vocabulary.",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "identifier": {
+          "description": "Model Primitive Datatype = String. An identifier for the user. NOTE - This characteristic is kept for backwards compatibility with OneRoster 1.1/1.0. The 'userIds' characteristic SHOULD be used instead.",
+          "type": "string"
+        },
+        "metadata": {
+          "$ref": "#/definitions/MetadataDType",
+          "description": "All objects CAN be extended using the Metadata class. This specification is silent on what implementers may consider to be appropriate extensions. The form of the extension is dependent on the binding technology being used."
+        },
+        "middleName": {
+          "description": "Model Primitive Datatype = NormalizedString. The set of middle names. If more than one middle name is needed separate using a space e.g. 'Wingarde Granville'.",
+          "type": "string"
+        },
+        "password": {
+          "description": "Model Primitive Datatype = String. A top-level password for the user. Care should be taken when using this field and the password SHOULD be encrypted.",
+          "type": "string"
+        },
+        "phone": {
+          "description": "Model Primitive Datatype = NormalizedString. The phone number for the user.",
+          "type": "string"
+        },
+        "preferredFirstName": {
+          "description": "Model Primitive Datatype = NormalizedString. The user's preferred first name. This attribute was added in version 1.2.",
+          "type": "string"
+        },
+        "preferredLastName": {
+          "description": "Model Primitive Datatype = NormalizedString. The user's preferred last name. This attribute was added in version 1.2.",
+          "type": "string"
+        },
+        "preferredMiddleName": {
+          "description": "Model Primitive Datatype = NormalizedString. The user's preferred middle name(s). This attribute was added in version 1.2.",
+          "type": "string"
+        },
+        "primaryOrg": {
+          "$ref": "#/definitions/OrgGUIDRefDType",
+          "description": "It is possible for a user to be a member of more than one organization and to have one or more roles in an organization. This attribute identifies the 'sourcedId' of the primary organization."
+        },
+        "pronouns": {
+          "description": "Model Primitive Datatype = NormalizedString. The pronoun(s) by which this person is referenced. Examples (in the case of English) include 'she/her/hers', 'he/him/his', 'they/them/theirs', 'ze/hir/hir', 'xe/xir', or a statement that the person's name should be used instead of any pronoun.",
+          "type": "string"
+        },
+        "resources": {
+          "description": "The identifiers (GUIDs) for the set of resources that are to be made available to the user. These are the sourcedIds that should be used for obtaining the metadata about the resources using the OR 1.2 Resources Service [OR-RES-SM-12].",
+          "items": {
+            "$ref": "#/definitions/ResourceGUIDRefDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "roles": {
+          "description": "The set of roles for each of the orgs to which the user is affilliated. This is expressed as a set of role/org tuples.",
+          "items": {
+            "$ref": "#/definitions/RoleDType"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "sms": {
+          "description": "Model Primitive Datatype = NormalizedString. The SMS number for the user.",
+          "type": "string"
+        },
+        "sourcedId": {
+          "description": "Model Primitive Datatype = String. The sourcedId of the object. All objects MUST be identified by a Source Identifier. This is a GUID  System ID for an object. This is the GUID that SYSTEMS will refer to when making API calls, or when needing to identify an object. It is RECOMMENDED that systems are able to map whichever local ids (e.g. database key fields) they use to SourcedId.  The sourcedId of an object is considered an addressable property of an entity and as such will not be treated as Personally Identifiable Information (PII) by certified products.  Therefore, as a part of certification, vendors will be required to declare that they will notify customers via documentation or other formal and documented agreement that sourcedIds should never contain PII in general, but particularly users. This means that if a customer includes a student name in an enrollment.sourcedId, it will not fall to any certified product to protect the enrollment.sourcedId as PII, or even the userSourcedId field in the enrollment record.",
+          "type": "string"
+        },
+        "status": {
+          "description": "All objects MUST BE either 'active' or 'tobedeleted'.  Something which is flagged 'tobedeleted' is to be considered safe to delete. Systems can delete records that are flagged as such if they wish, but they are not under any compulsion to do so. In v1.1 the enumeration value of 'inactive' was removed and so for backwards compatibility all such marked objects should be interpreted as 'tobedeleted'.",
+          "enum": [
+            "active",
+            "tobedeleted"
+          ],
+          "type": "string"
+        },
+        "userIds": {
+          "description": "The set of external user identifiers that should be used for this user, if for some reason the sourcedId cannot be used. This might be an active directory id, an LTI id, or some other machine-readable identifier that is used for this person.",
+          "items": {
+            "$ref": "#/definitions/UserIdDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "userMasterIdentifier": {
+          "description": "Model Primitive Datatype = NormalizedString. The master unique identifier for this user. This is NOT the same as the user's interoperability 'sourcedId'. This should be used to ensure that all of the system identifiers/accounts etc. can be reconciled to the same user. How this identifier is assigned and its format is beyond the scope of this specification.",
+          "type": "string"
+        },
+        "userProfiles": {
+          "description": "The set of system/app/tool profiles for the user.",
+          "items": {
+            "$ref": "#/definitions/UserProfileDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "username": {
+          "description": "Model Primitive Datatype = NormalizedString. The user name assigned to the user. NOTE - This has been kept for backwards compatibility with OneRoster 1.1 and the new 'userProfiles' characteristic SHOULD be used instead.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourcedId",
+        "status",
+        "dateLastModified",
+        "enabledUser",
+        "givenName",
+        "familyName",
+        "roles"
+      ],
+      "type": "object"
+    },
+    "UserGUIDRefDType": {
+      "additionalProperties": false,
+      "description": "This is the container for reference to a OneRoster 'User' object that has an allocated sourcedId (GUID).",
+      "properties": {
+        "href": {
+          "description": "Model Primitive Datatype = AnyURI. The URI for the type of object being referenced.",
+          "format": "uri",
+          "type": "string"
+        },
+        "sourcedId": {
+          "description": "Model Primitive Datatype = String. The globally unique identifier of the object being referenced.",
+          "type": "string"
+        },
+        "type": {
+          "description": "The type of object being referenced i.e. a 'user'.",
+          "enum": [
+            "user"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "href",
+        "sourcedId",
+        "type"
+      ],
+      "type": "object"
+    },
+    "UserIdDType": {
+      "additionalProperties": false,
+      "description": "This is the set of external user identifiers that should be used for this user, if for some reason the sourcedId cannot be used. This might be an active directory id, an LTI id, or some other machine-readable identifier that is used for this person.",
+      "properties": {
+        "identifier": {
+          "description": "Model Primitive Datatype = String. The user identifier.",
+          "type": "string"
+        },
+        "type": {
+          "description": "Model Primitive Datatype = NormalizedString. The type of identifier. This is no predefined vocabuary.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "identifier"
+      ],
+      "type": "object"
+    },
+    "UserProfileDType": {
+      "additionalProperties": false,
+      "description": "The container for the information about a User Profile that will provide the user with access to some system, application, tool, etc.",
+      "properties": {
+        "applicationId": {
+          "description": "Model Primitive Datatype = NormalizedString. Identifier for the application associated with the account. The nature, and how this identifier is assigned is not defined by this specification. This may have a value of 'default' to denote this account should be used for default access to all applications related to this vendor.",
+          "type": "string"
+        },
+        "credentials": {
+          "description": "The set of credentials that are available for access to this profile.",
+          "items": {
+            "$ref": "#/definitions/CredentialDType"
+          },
+          "minItems": 0,
+          "type": "array"
+        },
+        "description": {
+          "description": "Model Primitive Datatype = String. A human readable description of the use of the profile. This should not contain any security information for access to the account.",
+          "type": "string"
+        },
+        "profileId": {
+          "description": "Model Primitive Datatype = AnyURI. The unique identifier for the profile. This does not need to be a globally unique identifier but it must be unique within the scope of the user.",
+          "format": "uri",
+          "type": "string"
+        },
+        "profileType": {
+          "description": "Model Primitive Datatype = NormalizedString. The type of profile. This should be a human readable label that has some significance in the context of the related system, app, tool, etc.",
+          "type": "string"
+        },
+        "vendorId": {
+          "description": "Model Primitive Datatype = NormalizedString. The unique identifier for the vendor of the system, tool, app, etc. which requires the use of this profile.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profileId",
+        "profileType",
+        "vendorId"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "Composite roster response containing the full set of OneRoster v1.2 rostering collections.",
+  "properties": {
+    "roster": {
+      "$ref": "#/definitions/RosterDType",
+      "description": "An imaginary complete roster payload containing all OneRoster rostering collections."
+    }
+  },
+  "required": [
+    "roster"
+  ],
+  "title": "IMS Final Release JSON Schema Binding (getRoster-200-responsepayload-schema)",
+  "type": "object"
+}
